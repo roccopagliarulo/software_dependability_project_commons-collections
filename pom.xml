@@ -458,6 +458,25 @@
         <plugins>
           <!-- Enable the compilation of the benchmarks -->
           <plugin>
+              <artifactId>maven-compiler-plugin</artifactId>
+              <version>${commons.compiler.version}</version>
+              <configuration combine.self="override">
+                  <testIncludes>
+                      <testInclude>**/*.java</testInclude>
+                  </testIncludes>
+
+                  <annotationProcessorPaths>
+                      <path>
+                          <groupId>org.openjdk.jmh</groupId>
+                          <artifactId>jmh-generator-annprocess</artifactId>
+                          <version>1.37</version>
+                      </path>
+                  </annotationProcessorPaths>
+              </configuration>
+          </plugin>
+
+          <!-- Enable the compilation of the benchmarks -->
+          <!-- <plugin>
             <artifactId>maven-compiler-plugin</artifactId>
             <version>${commons.compiler.version}</version>
             <configuration combine.self="override">
@@ -465,7 +484,8 @@
                 <testInclude>**/*</testInclude>
               </testIncludes>
             </configuration>
-          </plugin>
+          </plugin> -->
+
           <!-- Hook the benchmarks to the test phase -->
           <plugin>
             <groupId>org.codehaus.mojo</groupId>
