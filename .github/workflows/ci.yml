@@ -21,7 +21,31 @@ jobs:
         uses: GitGuardian/ggshield-action@v1.53.0
         env:
           GITGUARDIAN_API_KEY: ${{ secrets.GITGUARDIAN_API_KEY }}
-  # Job 2: Build, Test e JaCoCo Report
+
+  # Job 2: Scansione vulnerabilità dipendenze con Snyk
+  snyk_scan:
+    name: Snyk Security Scan
+    runs-on: ubuntu-latest
+    steps: 
+      - name: heckout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'maven'
+      
+      - name: Run Snyk to check for vulnerabilities
+        uses: snyk/actions/maven@master
+        continue-on-error: true # Evita di bloccare la pipeline se trova vulnerabilità ereditate non bloccanti
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=high
+
+  # Job 3: Build, Test e JaCoCo Report
   build:
     name: Build, Test and Quality Analysis
     runs-on: ubuntu-latest
@@ -29,6 +53,8 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
+      with:
+          fetch-depth: 0
 
     - name: Set up JDK 17
       uses: actions/setup-java@v4
