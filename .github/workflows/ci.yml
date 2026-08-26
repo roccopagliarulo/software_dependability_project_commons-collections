@@ -18,7 +18,7 @@ jobs:
           fetch-depth: 0 # Necessario per scansionare la cronologia dei commit
 
       - name: Scan secrets with GitGuardian
-        uses: GitGuardian/ggshield-action@v1.53.0
+        uses: GitGuardian/ggshield-action@5fb0f7b0f0a51804f56f140645607db27d54fa57
         env:
           GITGUARDIAN_API_KEY: ${{ secrets.GITGUARDIAN_API_KEY }}
 
@@ -38,7 +38,7 @@ jobs:
           cache: 'maven'
       
       - name: Run Snyk to check for vulnerabilities
-        uses: snyk/actions/maven@master
+        uses: snyk/actions/maven@85e26715f08842d0577908b9e602fa35b02a2810
         continue-on-error: true # Evita di bloccare la pipeline se trova vulnerabilità ereditate non bloccanti
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
