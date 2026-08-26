@@ -22,7 +22,6 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.util.AbstractCollection;
-// import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
@@ -54,7 +53,7 @@ import org.apache.commons.collections4.BoundedCollection;
 public class CircularFifoQueue<E> extends AbstractCollection<E>
     implements Queue<E>, BoundedCollection<E>, Serializable {
 
-    /*@ 
+    /*@
       @ public invariant maxElements > 0;
       @ public invariant elements != null;
       @ public invariant elements.length == maxElements;
@@ -159,7 +158,7 @@ public class CircularFifoQueue<E> extends AbstractCollection<E>
     /**
      * Clears this queue.
      */
-    /*@ 
+    /*@
       @ also
       @ public normal_behavior
       @   assignable start, end, full, elements[*], values, objectState;
@@ -173,7 +172,7 @@ public class CircularFifoQueue<E> extends AbstractCollection<E>
         full = false;
         start = 0;
         end = 0;
-        /*@ 
+        /*@
           @ loop_invariant i >= 0 && i <= elements.length;
           @ loop_invariant (\forall int k; 0 <= k && k < i; elements[k] == null);
           @ loop_assigns i, elements[*], values, objectState;
@@ -191,7 +190,7 @@ public class CircularFifoQueue<E> extends AbstractCollection<E>
      * @param index  The index to decrement
      * @return The updated index
      */
-    /*@ 
+    /*@
       @   private normal_behavior
       @   requires index >= 0 && index < maxElements;
       @   ensures (index == 0) ==> \result == maxElements - 1;
@@ -207,7 +206,7 @@ public class CircularFifoQueue<E> extends AbstractCollection<E>
         return index;
     }
 
-    /*@ 
+    /*@
       @ also
       @ public normal_behavior
       @   requires !isEmpty();
@@ -252,7 +251,7 @@ public class CircularFifoQueue<E> extends AbstractCollection<E>
      * @param index  The index to increment
      * @return The updated index
      */
-    /*@ 
+    /*@
       @   private normal_behavior
       @   requires index >= 0 && index < maxElements;
       @   ensures (index + 1 >= maxElements) ==> \result == 0;
@@ -284,7 +283,7 @@ public class CircularFifoQueue<E> extends AbstractCollection<E>
      *
      * @return true if this queue is empty
      */
-    /*@ 
+    /*@
       @ also
       @ public normal_behavior
       @   ensures \result <==> (size() == 0);
@@ -303,7 +302,7 @@ public class CircularFifoQueue<E> extends AbstractCollection<E>
      *
      * @return always returns {@code false}
      */
-    /*@ 
+    /*@
       @ also
       @ public normal_behavior
       @   ensures \result == false;
@@ -343,7 +342,7 @@ public class CircularFifoQueue<E> extends AbstractCollection<E>
                 return elements[lastReturnedIndex];
             }
 
-            /*@ 
+            /*@
             @ also
             @ public normal_behavior
             @   requires !isEmpty();
@@ -403,7 +402,7 @@ public class CircularFifoQueue<E> extends AbstractCollection<E>
      *
      * @return The maximum number of elements the collection can hold
      */
-    /*@ 
+    /*@
       @ also
       @ public normal_behavior
       @   ensures \result == maxElements;
@@ -427,7 +426,7 @@ public class CircularFifoQueue<E> extends AbstractCollection<E>
         return add(element);
     }
 
-    /*@ 
+    /*@
       @ also
       @ public normal_behavior
       @   requires isEmpty();
@@ -447,7 +446,7 @@ public class CircularFifoQueue<E> extends AbstractCollection<E>
         return elements[start];
     }
 
-    /*@ 
+    /*@
       @ also
       @ public normal_behavior
       @   requires isEmpty();
@@ -497,7 +496,7 @@ public class CircularFifoQueue<E> extends AbstractCollection<E>
         }
     }
 
-    /*@ 
+    /*@
       @ also
       @ public normal_behavior
       @   requires !isEmpty();
@@ -532,7 +531,7 @@ public class CircularFifoQueue<E> extends AbstractCollection<E>
      *
      * @return this queue's size
      */
-    /*@ 
+    /*@
       @ also
       @ public normal_behavior
       @   assignable \nothing;
