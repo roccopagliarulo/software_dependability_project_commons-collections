@@ -54,14 +54,25 @@ import org.apache.commons.collections4.BoundedCollection;
 public class CircularFifoQueue<E> extends AbstractCollection<E>
     implements Queue<E>, BoundedCollection<E>, Serializable {
 
+    /*@ 
+      @ public invariant maxElements > 0;
+      @ public invariant elements != null;
+      @ public invariant elements.length == maxElements;
+      @ public invariant start >= 0 && start < maxElements;
+      @ public invariant end >= 0 && end < maxElements;
+      @ public invariant maxElements <= Integer.MAX_VALUE / 2;
+      @*/
+
     /** Serialization version. */
     private static final long serialVersionUID = -8423413834657610406L;
 
     /** Underlying storage array. */
-    private transient E[] elements;
+    private transient /*@ spec_public @*/ E[] elements;
+    //@ in values, objectState;
 
     /** Array index of first (oldest) queue element. */
-    private transient int start;
+    private transient /*@ spec_public @*/ int start;
+    //@ in values, objectState;
 
     /**
      * Index mod maxElements of the array position following the last queue
@@ -70,13 +81,17 @@ public class CircularFifoQueue<E> extends AbstractCollection<E>
      * For example, elements = {c,a,b}, start=1, end=1 corresponds to
      * the queue [a,b,c].
      */
-    private transient int end;
+    private transient /*@ spec_public @*/ int end;
+    //@ in values, objectState;
 
     /** Flag to indicate if the queue is currently full. */
-    private transient boolean full;
+    private transient /*@ spec_public @*/ boolean full;
+    //@ in values, objectState;
 
     /** Capacity of the queue. */
-    private final int maxElements;
+    private final /*@ spec_public @*/ int maxElements;
+
+    // //@ represents values \such_that values.length == size();
 
     /**
      * Constructor that creates a queue with the default size of 32.
@@ -144,12 +159,30 @@ public class CircularFifoQueue<E> extends AbstractCollection<E>
     /**
      * Clears this queue.
      */
+    /*@ 
+      @ also
+      @ public normal_behavior
+      @   assignable start, end, full, elements[*], values, objectState;
+      @   ensures start == 0;
+      @   ensures end == 0;
+      @   ensures full == false;
+      @*/
+        // // @   ensures values.length == 0;
     @Override
     public void clear() {
         full = false;
         start = 0;
         end = 0;
-        Arrays.fill(elements, null);
+        /*@ 
+          @ loop_invariant i >= 0 && i <= elements.length;
+          @ loop_invariant (\forall int k; 0 <= k && k < i; elements[k] == null);
+          @ loop_assigns i, elements[*], values, objectState;
+          @ decreases elements.length - i;
+          @*/
+          for (int i = 0; i < elements.length; i++) {
+              elements[i] = null;
+          }
+        // Arrays.fill(elements, null);
     }
 
     /**
@@ -158,7 +191,15 @@ public class CircularFifoQueue<E> extends AbstractCollection<E>
      * @param index  The index to decrement
      * @return The updated index
      */
-    private int decrement(int index) {
+    /*@ 
+      @   private normal_behavior
+      @   requires index >= 0 && index < maxElements;
+      @   ensures (index == 0) ==> \result == maxElements - 1;
+      @   ensures (index > 0) ==> \result == index - 1;
+      @   ensures \result >= 0 && \result < maxElements;
+      @   assignable \nothing;
+      @*/
+    private /*@ strictly_pure helper @*/ int decrement(int index) {
         index--;
         if (index < 0) {
             index = maxElements - 1;
@@ -166,8 +207,20 @@ public class CircularFifoQueue<E> extends AbstractCollection<E>
         return index;
     }
 
+    /*@ 
+      @ also
+      @ public normal_behavior
+      @   requires !isEmpty();
+      @   assignable \nothing;
+      @   ensures \result == elements[start];
+      @ also
+      @ public exceptional_behavior
+      @   requires isEmpty();
+      @   assignable \nothing;
+      @   signals_only NoSuchElementException;
+      @*/
     @Override
-    public E element() {
+    public /*@ spec_pure @*/ E element() {
         if (isEmpty()) {
             throw new NoSuchElementException("queue is empty");
         }
@@ -199,7 +252,15 @@ public class CircularFifoQueue<E> extends AbstractCollection<E>
      * @param index  The index to increment
      * @return The updated index
      */
-    private int increment(int index) {
+    /*@ 
+      @   private normal_behavior
+      @   requires index >= 0 && index < maxElements;
+      @   ensures (index + 1 >= maxElements) ==> \result == 0;
+      @   ensures (index + 1 < maxElements) ==> \result == index + 1;
+      @   ensures \result >= 0 && \result < maxElements;
+      @   assignable \nothing;
+      @*/
+    private /*@ strictly_pure helper @*/ int increment(int index) {
         index++;
         if (index >= maxElements) {
             index = 0;
@@ -223,8 +284,14 @@ public class CircularFifoQueue<E> extends AbstractCollection<E>
      *
      * @return true if this queue is empty
      */
+    /*@ 
+      @ also
+      @ public normal_behavior
+      @   ensures \result <==> (size() == 0);
+      @   assignable \nothing;
+      @*/
     @Override
-    public boolean isEmpty() {
+    public /*@ strictly_pure @*/ boolean isEmpty() {
         return size() == 0;
     }
 
@@ -236,8 +303,14 @@ public class CircularFifoQueue<E> extends AbstractCollection<E>
      *
      * @return always returns {@code false}
      */
+    /*@ 
+      @ also
+      @ public normal_behavior
+      @   ensures \result == false;
+      @   assignable \nothing;
+      @*/
     @Override
-    public boolean isFull() {
+    public /*@ strictly_pure @*/ boolean isFull() {
         return false;
     }
 
@@ -270,6 +343,21 @@ public class CircularFifoQueue<E> extends AbstractCollection<E>
                 return elements[lastReturnedIndex];
             }
 
+            /*@ 
+            @ also
+            @ public normal_behavior
+            @   requires !isEmpty();
+            @   assignable start, full, elements[*];
+            @   ensures elements[start] == null;
+            @   ensures full == false;
+            @   ensures (\old(start) + 1 >= maxElements) ==> start == 0;
+            @   ensures (\old(start) + 1 < maxElements) ==> start == \old(start) + 1;
+            @ also
+            @ public exceptional_behavior
+            @   requires isEmpty();
+            @   assignable \nothing;
+            @   signals_only NoSuchElementException;
+            @*/
             @Override
             public void remove() {
                 if (lastReturnedIndex == -1) {
@@ -315,8 +403,14 @@ public class CircularFifoQueue<E> extends AbstractCollection<E>
      *
      * @return The maximum number of elements the collection can hold
      */
+    /*@ 
+      @ also
+      @ public normal_behavior
+      @   ensures \result == maxElements;
+      @   assignable \nothing;
+      @*/
     @Override
-    public int maxSize() {
+    public /*@ strictly_pure @*/ int maxSize() {
         return maxElements;
     }
 
@@ -333,16 +427,40 @@ public class CircularFifoQueue<E> extends AbstractCollection<E>
         return add(element);
     }
 
+    /*@ 
+      @ also
+      @ public normal_behavior
+      @   requires isEmpty();
+      @   assignable \nothing;
+      @   ensures \result == null;
+      @ also
+      @ public normal_behavior
+      @   requires !isEmpty();
+      @   assignable \nothing;
+      @   ensures \result == elements[start];
+      @*/
     @Override
-    public E peek() {
+    public /*@ nullable strictly_pure @*/ E peek() {
         if (isEmpty()) {
             return null;
         }
         return elements[start];
     }
 
+    /*@ 
+      @ also
+      @ public normal_behavior
+      @   requires isEmpty();
+      @   assignable \nothing;
+      @   ensures \result == null;
+      @ also
+      @ public normal_behavior
+      @   requires !isEmpty();
+      @   assignable start, full, elements[*], values, objectState;
+      @   ensures full == false;
+      @*/
     @Override
-    public E poll() {
+    public /*@ nullable @*/ E poll() {
         if (isEmpty()) {
             return null;
         }
@@ -379,6 +497,18 @@ public class CircularFifoQueue<E> extends AbstractCollection<E>
         }
     }
 
+    /*@ 
+      @ also
+      @ public normal_behavior
+      @   requires !isEmpty();
+      @   assignable start, full, elements[*], values, objectState;
+      @   ensures full == false;
+      @ also
+      @ public exceptional_behavior
+      @   requires isEmpty();
+      @   assignable \nothing;
+      @   signals_only NoSuchElementException;
+      @*/
     @Override
     public E remove() {
         if (isEmpty()) {
@@ -402,8 +532,17 @@ public class CircularFifoQueue<E> extends AbstractCollection<E>
      *
      * @return this queue's size
      */
+    /*@ 
+      @ also
+      @ public normal_behavior
+      @   assignable \nothing;
+      @   ensures \result >= 0 && \result <= maxElements;
+      @   ensures full ==> \result == maxElements;
+      @   ensures (!full && end >= start) ==> \result == (end - start);
+      @   ensures (!full && end < start) ==> \result == (maxElements - start + end);
+      @*/
     @Override
-    public int size() {
+    public /*@ strictly_pure helper @*/ int size() {
         int size = 0;
 
         if (end < start) {
