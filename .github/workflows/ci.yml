@@ -7,6 +7,21 @@ on:
     branches: [ "master", "main" ]
 
 jobs:
+  # Job 1: Scansione segreti e credenziali
+  secret_scan: 
+    name : GitGuardian Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Necessario per scansionare la cronologia dei commit
+
+      - name: Scan secrets with GitGuardian
+        uses: GitGuardian/ggshield-action@v1
+        env:
+          GITGUARDIAN_API_KEY: ${{ secrets.GITGUARDIAN_API_KEY }}
+  # Job 2: Build, Test e JaCoCo Report
   build:
     runs-on: ubuntu-latest
 
