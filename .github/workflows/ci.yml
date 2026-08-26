@@ -23,6 +23,7 @@ jobs:
           GITGUARDIAN_API_KEY: ${{ secrets.GITGUARDIAN_API_KEY }}
   # Job 2: Build, Test e JaCoCo Report
   build:
+    name: Build, Test and Quality Analysis
     runs-on: ubuntu-latest
 
     steps:
@@ -35,9 +36,27 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
         cache: 'maven'
+    
+    - name: Cache SonarCloud packages
+      uses: actions/cache@v4
+      with:
+        path: ~/.sonar/cache
+        key: ${{ runner.os }}-sonar
+        restore-keys: ${{ runner.os }}-sonar
 
     - name: Build and run Tests with JaCoCo
       run: mvn -B clean test jacoco:report
+    
+    - name: SonarQube Cloud Scan
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      run: >
+        mvn -B org.sonarsource.scanner.maven:sonar-maven-plugin:sonar
+        -Dsonar.organization=roccopagliarulo
+        -Dsonar.projectKey=roccopagliarulo_software_dependability_project_commons-collections
+        -Dsonar.host.url=https://sonarcloud.io
+        -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
 
     - name: Upload JaCoCo Coverage Report
       uses: actions/upload-artifact@v4
