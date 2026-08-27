@@ -459,13 +459,13 @@
         <plugins>
           <!-- Enable the compilation of the benchmarks -->
           <plugin>
+              <groupId>org.apache.maven.plugins</groupId>
               <artifactId>maven-compiler-plugin</artifactId>
               <version>${commons.compiler.version}</version>
               <configuration combine.self="override">
                   <testIncludes>
                       <testInclude>**/*.java</testInclude>
                   </testIncludes>
-
                   <annotationProcessorPaths>
                       <path>
                           <groupId>org.openjdk.jmh</groupId>
@@ -473,6 +473,13 @@
                           <version>1.37</version>
                       </path>
                   </annotationProcessorPaths>
+                  <testAnnotationProcessorPaths>
+                      <path>
+                          <groupId>org.openjdk.jmh</groupId>
+                          <artifactId>jmh-generator-annprocess</artifactId>
+                          <version>1.37</version>
+                      </path>
+                  </testAnnotationProcessorPaths>
               </configuration>
           </plugin>
 
