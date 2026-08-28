@@ -14,13 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-//benchmark per confrontare le prestazioni di una struttura dati Apache Commons
-//(ad esempio CircularFifoQueue e TreeBag o TreeBidiMap) rispetto alle collezioni standard di Java.
+//benchmark per confrontare le prestazioni di CircularFifoQueue (Apache Commons Collections)
+//rispetto a ArrayDeque di Java, su inserimento puro, ciclo completo offer+poll
+//e un pattern misto offer/peek/poll piu' vicino a un utilizzo "steady-state".
 
 package org.apache.commons.collections4.benchmark;
 
 import java.util.ArrayDeque;
 import java.util.Queue;
+import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.collections4.queue.CircularFifoQueue;
@@ -45,14 +47,36 @@ import org.openjdk.jmh.annotations.Warmup;
 public class QueueBenchmark {
 
     private static final int CAPACITY = 1000;
+    private static final int LOOKUP_OPS = 1000;
+
     private Queue<Integer> circularFifoQueue;
     private Queue<Integer> standardQueue;
+    private Random random;
 
     @Setup(Level.Iteration)
     public void setup() {
         circularFifoQueue = new CircularFifoQueue<>(CAPACITY);
         standardQueue = new ArrayDeque<>(CAPACITY);
+        random = new Random(42);
     }
+
+    // --- Benchmark 1: throughput puro su inserimento ---
+
+    @Benchmark
+    public void testCircularFifoQueueAdd() {
+        for (int i = 0; i < CAPACITY; i++) {
+            circularFifoQueue.offer(i);
+        }
+    }
+
+    @Benchmark
+    public void testStandardArrayDequeAdd() {
+        for (int i = 0; i < CAPACITY; i++) {
+            standardQueue.offer(i);
+        }
+    }
+
+    // --- Benchmark 2: ciclo completo, riempimento e svuotamento ---
 
     @Benchmark
     public void testCircularFifoQueueAddAndPoll() {
@@ -68,6 +92,48 @@ public class QueueBenchmark {
     public void testStandardArrayDequeAddAndPoll() {
         for (int i = 0; i < CAPACITY; i++) {
             standardQueue.offer(i);
+        }
+        while (!standardQueue.isEmpty()) {
+            standardQueue.poll();
+        }
+    }
+
+    // --- Benchmark 3: pattern misto offer/peek/poll ---
+    // A differenza del ciclo "riempi tutto poi svuota tutto" sopra, qui le
+    // operazioni sono interfogliate per simulare un utilizzo piu' realistico
+    // in stato stazionario, includendo anche peek() (lettura senza rimozione),
+    // analogo al ruolo giocato dai lookup casuali negli altri benchmark.
+
+    @Benchmark
+    public void testCircularFifoQueueMixedOfferPeekPoll() {
+        for (int i = 0; i < CAPACITY; i++) {
+            circularFifoQueue.offer(i);
+        }
+        for (int i = 0; i < LOOKUP_OPS; i++) {
+            if (random.nextBoolean()) {
+                circularFifoQueue.peek();
+            } else {
+                circularFifoQueue.poll();
+                circularFifoQueue.offer(i);
+            }
+        }
+        while (!circularFifoQueue.isEmpty()) {
+            circularFifoQueue.poll();
+        }
+    }
+
+    @Benchmark
+    public void testStandardArrayDequeMixedOfferPeekPoll() {
+        for (int i = 0; i < CAPACITY; i++) {
+            standardQueue.offer(i);
+        }
+        for (int i = 0; i < LOOKUP_OPS; i++) {
+            if (random.nextBoolean()) {
+                standardQueue.peek();
+            } else {
+                standardQueue.poll();
+                standardQueue.offer(i);
+            }
         }
         while (!standardQueue.isEmpty()) {
             standardQueue.poll();

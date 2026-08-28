@@ -91,6 +91,12 @@ public class CircularFifoQueue<E> extends AbstractCollection<E>
     private final /*@ spec_public @*/ int maxElements;
 
     // //@ represents values \such_that values.length == size();
+    /*@ represents values \such_that
+  @   values.length == (full ? maxElements
+  @                           : (end >= start ? end - start : maxElements - start + end)) &&
+  @   (\forall int i; 0 <= i && i < values.length;
+  @        values[i] == elements[(start + i) % maxElements]);
+  @*/
 
     /**
      * Constructor that creates a queue with the default size of 32.
@@ -541,7 +547,7 @@ public class CircularFifoQueue<E> extends AbstractCollection<E>
       @   ensures (!full && end < start) ==> \result == (maxElements - start + end);
       @*/
     @Override
-    public /*@ strictly_pure helper @*/ int size() {
+    public /*@ strictly_pure @*/ int size() {
         int size = 0;
 
         if (end < start) {
