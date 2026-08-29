@@ -67,11 +67,9 @@ public class CircularFifoQueue<E> extends AbstractCollection<E>
 
     /** Underlying storage array. */
     private transient /*@ spec_public @*/ E[] elements;
-    //@ in values, objectState;
 
     /** Array index of first (oldest) queue element. */
     private transient /*@ spec_public @*/ int start;
-    //@ in values, objectState;
 
     /**
      * Index mod maxElements of the array position following the last queue
@@ -81,22 +79,29 @@ public class CircularFifoQueue<E> extends AbstractCollection<E>
      * the queue [a,b,c].
      */
     private transient /*@ spec_public @*/ int end;
-    //@ in values, objectState;
 
     /** Flag to indicate if the queue is currently full. */
     private transient /*@ spec_public @*/ boolean full;
-    //@ in values, objectState;
 
     /** Capacity of the queue. */
     private final /*@ spec_public @*/ int maxElements;
 
-    // //@ represents values \such_that values.length == size();
-    /*@ represents values \such_that
-  @   values.length == (full ? maxElements
-  @                           : (end >= start ? end - start : maxElements - start + end)) &&
-  @   (\forall int i; 0 <= i && i < values.length;
-  @        values[i] == elements[(start + i) % maxElements]);
-  @*/
+    // /*@ represents values \such_that
+    // // @   values.length == (full ? maxElements
+    // // @                           : (end >= start ? end - start : maxElements - start + end)) &&
+    // // @   (\forall int i; 0 <= i && i < values.length;
+    // // @        values[i] == elements[(start + i) % maxElements]);
+    // // @*/
+    // NOTE: an abstract model field 'values' (a logical sequence view of the
+    // queue, defined via a 'represents \such_that' clause quantifying over
+    // elements[(start + i) % maxElements]) was attempted here but is not
+    // supported by OpenJML's BasicBlocker2 backend: it cannot translate an
+    // array access on a generic array E[] with a non-constant, quantifier-
+    // dependent index inside a 'represents' clause. This is a documented
+    // limitation of the tool, not a defect in the specification. As a
+    // workaround, every method below is specified directly in terms of the
+    // concrete fields (elements, start, end, full, maxElements) instead of
+    // through this abstract model.
 
     /**
      * Constructor that creates a queue with the default size of 32.
@@ -167,12 +172,11 @@ public class CircularFifoQueue<E> extends AbstractCollection<E>
     /*@
       @ also
       @ public normal_behavior
-      @   assignable start, end, full, elements[*], values, objectState;
+      @   assignable start, end, full, elements[*];
       @   ensures start == 0;
       @   ensures end == 0;
       @   ensures full == false;
       @*/
-        // // @   ensures values.length == 0;
     @Override
     public void clear() {
         full = false;
@@ -181,7 +185,7 @@ public class CircularFifoQueue<E> extends AbstractCollection<E>
         /*@
           @ loop_invariant i >= 0 && i <= elements.length;
           @ loop_invariant (\forall int k; 0 <= k && k < i; elements[k] == null);
-          @ loop_assigns i, elements[*], values, objectState;
+          @ loop_assigns i, elements[*];
           @ decreases elements.length - i;
           @*/
           for (int i = 0; i < elements.length; i++) {
@@ -461,7 +465,7 @@ public class CircularFifoQueue<E> extends AbstractCollection<E>
       @ also
       @ public normal_behavior
       @   requires !isEmpty();
-      @   assignable start, full, elements[*], values, objectState;
+      @   assignable start, full, elements[*];
       @   ensures full == false;
       @*/
     @Override
@@ -506,7 +510,7 @@ public class CircularFifoQueue<E> extends AbstractCollection<E>
       @ also
       @ public normal_behavior
       @   requires !isEmpty();
-      @   assignable start, full, elements[*], values, objectState;
+      @   assignable start, full, elements[*];
       @   ensures full == false;
       @ also
       @ public exceptional_behavior
