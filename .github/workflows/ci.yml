@@ -90,6 +90,16 @@ jobs:
       with:
         name: jacoco-report
         path: target/site/jacoco/
+    
+    - name: Run PiTest mutation testing
+      continue-on-error: true
+      run: mvn -B org.pitest:pitest-maven:mutationCoverage
+
+    - name: Upload PiTest Report
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      with:
+        name: pitest-report
+        path: target/pit-reports/
   
   docker-build-push:
     name: Build & Push Docker Image

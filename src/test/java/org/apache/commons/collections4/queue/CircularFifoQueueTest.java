@@ -446,6 +446,39 @@ public class CircularFifoQueueTest<E> extends AbstractQueueTest<E> {
 
     @Test
     @SuppressWarnings("unchecked")
+    void testIsFull() {
+        // isFull() is documented to always return false for CircularFifoQueue,
+        // regardless of capacity or fill state (unlike isAtFullCapacity()).
+        final CircularFifoQueue<E> empty = new CircularFifoQueue<>(3);
+        assertFalse(empty.isFull());
+
+        empty.add((E) "a");
+        empty.add((E) "b");
+        empty.add((E) "c");
+        assertTrue(empty.isAtFullCapacity());
+        assertFalse(empty.isFull());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void testDeserializeMinimumSizeQueue() throws Exception {
+        // boundary case: the smallest legal queue size (maxElements == 1)
+        final CircularFifoQueue<E> single = new CircularFifoQueue<>(1);
+        single.add((E) "only");
+
+        final CircularFifoQueue<E> restored = serializeDeserialize(single);
+        assertEquals(1, restored.maxSize());
+        assertEquals(1, restored.size());
+        assertTrue(restored.contains("only"));
+
+        restored.add((E) "replaces");
+        assertEquals(1, restored.size());
+        assertTrue(restored.contains("replaces"));
+        assertFalse(restored.contains("only"));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
     void testRepeatedSerialization() throws Exception {
         // bug 31433
         final CircularFifoQueue<E> b = new CircularFifoQueue<>(2);
