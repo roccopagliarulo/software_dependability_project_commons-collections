@@ -1,0 +1,583 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CircularFifoQueue.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons Collections</a> &gt; <a href="index.source.html" class="el_package">org.apache.commons.collections4.queue</a> &gt; <span class="el_source">CircularFifoQueue.java</span></div><h1>CircularFifoQueue.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.commons.collections4.queue;
+
+import java.io.IOException;
+import java.io.InvalidObjectException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
+import java.util.AbstractCollection;
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.NoSuchElementException;
+import java.util.Objects;
+import java.util.Queue;
+
+import org.apache.commons.collections4.BoundedCollection;
+
+/**
+ * CircularFifoQueue is a first-in first-out queue with a fixed size that
+ * replaces its oldest element if full.
+ * &lt;p&gt;
+ * The removal order of a {@link CircularFifoQueue} is based on the
+ * insertion order; elements are removed in the same order in which they
+ * were added.  The iteration order is the same as the removal order.
+ * &lt;/p&gt;
+ * &lt;p&gt;
+ * The {@link #add(Object)}, {@link #remove()}, {@link #peek()}, {@link #poll()},
+ * {@link #offer(Object)} operations all perform in constant time.
+ * All other operations perform in linear time or worse.
+ * &lt;/p&gt;
+ * &lt;p&gt;
+ * This queue prevents null objects from being added.
+ * &lt;/p&gt;
+ *
+ * @param &lt;E&gt; The type of elements in this collection
+ * @since 4.0
+ */
+public class CircularFifoQueue&lt;E&gt; extends AbstractCollection&lt;E&gt;
+    implements Queue&lt;E&gt;, BoundedCollection&lt;E&gt;, Serializable {
+
+    /*@
+      @ public invariant maxElements &gt; 0;
+      @ public invariant elements != null;
+      @ public invariant elements.length == maxElements;
+      @ public invariant start &gt;= 0 &amp;&amp; start &lt; maxElements;
+      @ public invariant end &gt;= 0 &amp;&amp; end &lt; maxElements;
+      @ public invariant maxElements &lt;= Integer.MAX_VALUE / 2;
+      @*/
+
+    /** Serialization version. */
+    private static final long serialVersionUID = -8423413834657610406L;
+
+    /** Underlying storage array. */
+    private transient /*@ spec_public @*/ E[] elements;
+
+    /** Array index of first (oldest) queue element. */
+    private transient /*@ spec_public @*/ int start;
+
+    /**
+     * Index mod maxElements of the array position following the last queue
+     * element.  Queue elements start at elements[start] and &quot;wrap around&quot;
+     * elements[maxElements-1], ending at elements[decrement(end)].
+     * For example, elements = {c,a,b}, start=1, end=1 corresponds to
+     * the queue [a,b,c].
+     */
+    private transient /*@ spec_public @*/ int end;
+
+    /** Flag to indicate if the queue is currently full. */
+    private transient /*@ spec_public @*/ boolean full;
+
+    /** Capacity of the queue. */
+    private final /*@ spec_public @*/ int maxElements;
+
+    // /*@ represents values \such_that
+    // // @   values.length == (full ? maxElements
+    // // @                           : (end &gt;= start ? end - start : maxElements - start + end)) &amp;&amp;
+    // // @   (\forall int i; 0 &lt;= i &amp;&amp; i &lt; values.length;
+    // // @        values[i] == elements[(start + i) % maxElements]);
+    // // @*/
+    // NOTE: an abstract model field 'values' (a logical sequence view of the
+    // queue, defined via a 'represents \such_that' clause quantifying over
+    // elements[(start + i) % maxElements]) was attempted here but is not
+    // supported by OpenJML's BasicBlocker2 backend: it cannot translate an
+    // array access on a generic array E[] with a non-constant, quantifier-
+    // dependent index inside a 'represents' clause. This is a documented
+    // limitation of the tool, not a defect in the specification. As a
+    // workaround, every method below is specified directly in terms of the
+    // concrete fields (elements, start, end, full, maxElements) instead of
+    // through this abstract model.
+
+    /**
+     * Constructor that creates a queue with the default size of 32.
+     */
+    public CircularFifoQueue() {
+<span class="fc" id="L110">        this(32);</span>
+<span class="fc" id="L111">    }</span>
+
+    /**
+     * Constructor that creates a queue from the specified collection.
+     * The collection size also sets the queue size.
+     *
+     * @param coll  The collection to copy into the queue, may not be null
+     * @throws NullPointerException if the collection is null
+     */
+    public CircularFifoQueue(final Collection&lt;? extends E&gt; coll) {
+<span class="fc" id="L121">        this(coll.size());</span>
+<span class="fc" id="L122">        addAll(coll);</span>
+<span class="fc" id="L123">    }</span>
+
+    /**
+     * Constructor that creates a queue with the specified size.
+     *
+     * @param size  The size of the queue (cannot be changed)
+     * @throws IllegalArgumentException  if the size is &amp;lt; 1
+     */
+    @SuppressWarnings(&quot;unchecked&quot;)
+<span class="fc" id="L132">    public CircularFifoQueue(final int size) {</span>
+<span class="fc bfc" id="L133" title="All 2 branches covered.">        if (size &lt;= 0) {</span>
+<span class="fc" id="L134">            throw new IllegalArgumentException(&quot;The size must be greater than 0&quot;);</span>
+        }
+<span class="fc" id="L136">        elements = (E[]) new Object[size];</span>
+<span class="fc" id="L137">        maxElements = elements.length;</span>
+<span class="fc" id="L138">    }</span>
+
+    /**
+     * Adds the given element to this queue. If the queue is full, the least recently added
+     * element is discarded so that a new element can be inserted.
+     *
+     * @param element  The element to add
+     * @return true, always
+     * @throws NullPointerException  if the given element is null
+     */
+    @Override
+    public boolean add(final E element) {
+<span class="fc" id="L150">        Objects.requireNonNull(element, &quot;element&quot;);</span>
+
+<span class="fc bfc" id="L152" title="All 2 branches covered.">        if (isAtFullCapacity()) {</span>
+<span class="fc" id="L153">            remove();</span>
+        }
+
+<span class="fc" id="L156">        elements[end++] = element;</span>
+
+<span class="fc bfc" id="L158" title="All 2 branches covered.">        if (end &gt;= maxElements) {</span>
+<span class="fc" id="L159">            end = 0;</span>
+        }
+
+<span class="fc bfc" id="L162" title="All 2 branches covered.">        if (end == start) {</span>
+<span class="fc" id="L163">            full = true;</span>
+        }
+
+<span class="fc" id="L166">        return true;</span>
+    }
+
+    /**
+     * Clears this queue.
+     */
+    /*@
+      @ also
+      @ public normal_behavior
+      @   assignable start, end, full, elements[*];
+      @   ensures start == 0;
+      @   ensures end == 0;
+      @   ensures full == false;
+      @*/
+    @Override
+    public void clear() {
+<span class="fc" id="L182">        full = false;</span>
+<span class="fc" id="L183">        start = 0;</span>
+<span class="fc" id="L184">        end = 0;</span>
+        /*@
+          @ loop_invariant i &gt;= 0 &amp;&amp; i &lt;= elements.length;
+          @ loop_invariant (\forall int k; 0 &lt;= k &amp;&amp; k &lt; i; elements[k] == null);
+          @ loop_assigns i, elements[*];
+          @ decreases elements.length - i;
+          @*/
+<span class="fc bfc" id="L191" title="All 2 branches covered.">          for (int i = 0; i &lt; elements.length; i++) {</span>
+<span class="fc" id="L192">              elements[i] = null;</span>
+          }
+        // Arrays.fill(elements, null);
+<span class="fc" id="L195">    }</span>
+
+    /**
+     * Decrements the internal index.
+     *
+     * @param index  The index to decrement
+     * @return The updated index
+     */
+    /*@
+      @   private normal_behavior
+      @   requires index &gt;= 0 &amp;&amp; index &lt; maxElements;
+      @   ensures (index == 0) ==&gt; \result == maxElements - 1;
+      @   ensures (index &gt; 0) ==&gt; \result == index - 1;
+      @   ensures \result &gt;= 0 &amp;&amp; \result &lt; maxElements;
+      @   assignable \nothing;
+      @*/
+    private /*@ strictly_pure helper @*/ int decrement(int index) {
+<span class="fc" id="L212">        index--;</span>
+<span class="fc bfc" id="L213" title="All 2 branches covered.">        if (index &lt; 0) {</span>
+<span class="fc" id="L214">            index = maxElements - 1;</span>
+        }
+<span class="fc" id="L216">        return index;</span>
+    }
+
+    /*@
+      @ also
+      @ public normal_behavior
+      @   requires !isEmpty();
+      @   assignable \nothing;
+      @   ensures \result == elements[start];
+      @ also
+      @ public exceptional_behavior
+      @   requires isEmpty();
+      @   assignable \nothing;
+      @   signals_only NoSuchElementException;
+      @*/
+    @Override
+    public /*@ spec_pure @*/ E element() {
+<span class="fc bfc" id="L233" title="All 2 branches covered.">        if (isEmpty()) {</span>
+<span class="fc" id="L234">            throw new NoSuchElementException(&quot;queue is empty&quot;);</span>
+        }
+<span class="fc" id="L236">        return peek();</span>
+    }
+
+    /**
+     * Gets the element at the specified position in this queue.
+     *
+     * @param index The position of the element in the queue
+     * @return The element at position {@code index}
+     * @throws NoSuchElementException if the requested position is outside the range [0, size)
+     */
+    public E get(final int index) {
+<span class="fc" id="L247">        final int sz = size();</span>
+<span class="fc bfc" id="L248" title="All 4 branches covered.">        if (index &lt; 0 || index &gt;= sz) {</span>
+<span class="fc" id="L249">            throw new NoSuchElementException(</span>
+<span class="fc" id="L250">                    String.format(&quot;The specified index %1$d is outside the available range [0, %2$d)&quot;,</span>
+<span class="fc" id="L251">                                  Integer.valueOf(index), Integer.valueOf(sz)));</span>
+        }
+
+<span class="fc" id="L254">        final int idx = (start + index) % maxElements;</span>
+<span class="fc" id="L255">        return elements[idx];</span>
+    }
+
+    /**
+     * Increments the internal index.
+     *
+     * @param index  The index to increment
+     * @return The updated index
+     */
+    /*@
+      @   private normal_behavior
+      @   requires index &gt;= 0 &amp;&amp; index &lt; maxElements;
+      @   ensures (index + 1 &gt;= maxElements) ==&gt; \result == 0;
+      @   ensures (index + 1 &lt; maxElements) ==&gt; \result == index + 1;
+      @   ensures \result &gt;= 0 &amp;&amp; \result &lt; maxElements;
+      @   assignable \nothing;
+      @*/
+    private /*@ strictly_pure helper @*/ int increment(int index) {
+<span class="fc" id="L273">        index++;</span>
+<span class="fc bfc" id="L274" title="All 2 branches covered.">        if (index &gt;= maxElements) {</span>
+<span class="fc" id="L275">            index = 0;</span>
+        }
+<span class="fc" id="L277">        return index;</span>
+    }
+
+    /**
+     * Returns {@code true} if the capacity limit of this queue has been reached,
+     * i.e. the number of elements stored in the queue equals its maximum size.
+     *
+     * @return {@code true} if the capacity limit has been reached, {@code false} otherwise
+     * @since 4.1
+     */
+    public boolean isAtFullCapacity() {
+<span class="fc bfc" id="L288" title="All 2 branches covered.">        return size() == maxElements;</span>
+    }
+
+    /**
+     * Returns true if this queue is empty; false otherwise.
+     *
+     * @return true if this queue is empty
+     */
+    /*@
+      @ also
+      @ public normal_behavior
+      @   ensures \result &lt;==&gt; (size() == 0);
+      @   assignable \nothing;
+      @*/
+    @Override
+    public /*@ strictly_pure @*/ boolean isEmpty() {
+<span class="fc bfc" id="L304" title="All 2 branches covered.">        return size() == 0;</span>
+    }
+
+    /**
+     * {@inheritDoc}
+     * &lt;p&gt;
+     * A {@code CircularFifoQueue} can never be full, thus this returns always
+     * {@code false}.
+     *
+     * @return always returns {@code false}
+     */
+    /*@
+      @ also
+      @ public normal_behavior
+      @   ensures \result == false;
+      @   assignable \nothing;
+      @*/
+    @Override
+    public /*@ strictly_pure @*/ boolean isFull() {
+<span class="fc" id="L323">        return false;</span>
+    }
+
+    /**
+     * Returns an iterator over this queue's elements.
+     *
+     * @return An iterator over this queue's elements
+     */
+    @Override
+    public Iterator&lt;E&gt; iterator() {
+<span class="fc" id="L333">        return new Iterator&lt;E&gt;() {</span>
+
+<span class="fc" id="L335">            private int index = start;</span>
+<span class="fc" id="L336">            private int lastReturnedIndex = -1;</span>
+<span class="fc" id="L337">            private boolean isFirst = full;</span>
+
+            @Override
+            public boolean hasNext() {
+<span class="fc bfc" id="L341" title="All 4 branches covered.">                return isFirst || index != end;</span>
+            }
+
+            @Override
+            public E next() {
+<span class="fc bfc" id="L346" title="All 2 branches covered.">                if (!hasNext()) {</span>
+<span class="fc" id="L347">                    throw new NoSuchElementException();</span>
+                }
+<span class="fc" id="L349">                isFirst = false;</span>
+<span class="fc" id="L350">                lastReturnedIndex = index;</span>
+<span class="fc" id="L351">                index = increment(index);</span>
+<span class="fc" id="L352">                return elements[lastReturnedIndex];</span>
+            }
+
+            /*@
+            @ also
+            @ public normal_behavior
+            @   requires !isEmpty();
+            @   assignable start, full, elements[*];
+            @   ensures elements[start] == null;
+            @   ensures full == false;
+            @   ensures (\old(start) + 1 &gt;= maxElements) ==&gt; start == 0;
+            @   ensures (\old(start) + 1 &lt; maxElements) ==&gt; start == \old(start) + 1;
+            @ also
+            @ public exceptional_behavior
+            @   requires isEmpty();
+            @   assignable \nothing;
+            @   signals_only NoSuchElementException;
+            @*/
+            @Override
+            public void remove() {
+<span class="fc bfc" id="L372" title="All 2 branches covered.">                if (lastReturnedIndex == -1) {</span>
+<span class="fc" id="L373">                    throw new IllegalStateException();</span>
+                }
+
+                // First element can be removed quickly
+<span class="fc bfc" id="L377" title="All 2 branches covered.">                if (lastReturnedIndex == start) {</span>
+<span class="fc" id="L378">                    CircularFifoQueue.this.remove();</span>
+<span class="fc" id="L379">                    lastReturnedIndex = -1;</span>
+<span class="fc" id="L380">                    return;</span>
+                }
+
+<span class="fc" id="L383">                int pos = lastReturnedIndex + 1;</span>
+<span class="fc bfc" id="L384" title="All 4 branches covered.">                if (start &lt; lastReturnedIndex &amp;&amp; pos &lt; end) {</span>
+                    // shift in one part
+<span class="fc" id="L386">                    System.arraycopy(elements, pos, elements, lastReturnedIndex, end - pos);</span>
+                } else {
+                    // Other elements require us to shift the subsequent elements
+<span class="fc bfc" id="L389" title="All 2 branches covered.">                    while (pos != end) {</span>
+<span class="fc bfc" id="L390" title="All 2 branches covered.">                        if (pos &gt;= maxElements) {</span>
+<span class="fc" id="L391">                            elements[pos - 1] = elements[0];</span>
+<span class="fc" id="L392">                            pos = 0;</span>
+                        } else {
+<span class="fc" id="L394">                            elements[decrement(pos)] = elements[pos];</span>
+<span class="fc" id="L395">                            pos = increment(pos);</span>
+                        }
+                    }
+                }
+
+<span class="fc" id="L400">                lastReturnedIndex = -1;</span>
+<span class="fc" id="L401">                end = decrement(end);</span>
+<span class="fc" id="L402">                elements[end] = null;</span>
+<span class="fc" id="L403">                full = false;</span>
+<span class="fc" id="L404">                index = decrement(index);</span>
+<span class="fc" id="L405">            }</span>
+
+        };
+    }
+
+    /**
+     * Gets the maximum size of the collection (the bound).
+     *
+     * @return The maximum number of elements the collection can hold
+     */
+    /*@
+      @ also
+      @ public normal_behavior
+      @   ensures \result == maxElements;
+      @   assignable \nothing;
+      @*/
+    @Override
+    public /*@ strictly_pure @*/ int maxSize() {
+<span class="fc" id="L423">        return maxElements;</span>
+    }
+
+    /**
+     * Adds the given element to this queue. If the queue is full, the least recently added
+     * element is discarded so that a new element can be inserted.
+     *
+     * @param element  The element to add
+     * @return true, always
+     * @throws NullPointerException  if the given element is null
+     */
+    @Override
+    public boolean offer(final E element) {
+<span class="fc" id="L436">        return add(element);</span>
+    }
+
+    /*@
+      @ also
+      @ public normal_behavior
+      @   requires isEmpty();
+      @   assignable \nothing;
+      @   ensures \result == null;
+      @ also
+      @ public normal_behavior
+      @   requires !isEmpty();
+      @   assignable \nothing;
+      @   ensures \result == elements[start];
+      @*/
+    @Override
+    public /*@ nullable strictly_pure @*/ E peek() {
+<span class="fc bfc" id="L453" title="All 2 branches covered.">        if (isEmpty()) {</span>
+<span class="fc" id="L454">            return null;</span>
+        }
+<span class="fc" id="L456">        return elements[start];</span>
+    }
+
+    /*@
+      @ also
+      @ public normal_behavior
+      @   requires isEmpty();
+      @   assignable \nothing;
+      @   ensures \result == null;
+      @ also
+      @ public normal_behavior
+      @   requires !isEmpty();
+      @   assignable start, full, elements[*];
+      @   ensures full == false;
+      @*/
+    @Override
+    public /*@ nullable @*/ E poll() {
+<span class="fc bfc" id="L473" title="All 2 branches covered.">        if (isEmpty()) {</span>
+<span class="fc" id="L474">            return null;</span>
+        }
+<span class="fc" id="L476">        return remove();</span>
+    }
+
+    /**
+     * Deserializes the queue in using a custom routine.
+     *
+     * @param in  The input stream
+     * @throws IOException Thrown if an I/O error occurs while writing to the output stream
+     * @throws ClassNotFoundException if the class of a serialized object cannot be found
+     */
+    @SuppressWarnings(&quot;unchecked&quot;)
+    private void readObject(final ObjectInputStream in) throws IOException, ClassNotFoundException {
+<span class="fc" id="L488">        in.defaultReadObject();</span>
+<span class="pc bpc" id="L489" title="1 of 2 branches missed.">        if (maxElements &lt; 1) {</span>
+<span class="nc" id="L490">            throw new InvalidObjectException(&quot;maxElements must be greater than 0&quot;);</span>
+        }
+<span class="fc" id="L492">        elements = (E[]) new Object[maxElements];</span>
+<span class="fc" id="L493">        final int size = in.readInt();</span>
+<span class="fc bfc" id="L494" title="All 4 branches covered.">        if (size &lt; 0 || size &gt; maxElements) {</span>
+<span class="fc" id="L495">            throw new InvalidObjectException(&quot;size is out of range: &quot; + size);</span>
+        }
+<span class="fc bfc" id="L497" title="All 2 branches covered.">        for (int i = 0; i &lt; size; i++) {</span>
+<span class="fc" id="L498">            elements[i] = (E) in.readObject();</span>
+        }
+<span class="fc" id="L500">        start = 0;</span>
+<span class="fc bfc" id="L501" title="All 2 branches covered.">        full = size == maxElements;</span>
+<span class="fc bfc" id="L502" title="All 2 branches covered.">        if (full) {</span>
+<span class="fc" id="L503">            end = 0;</span>
+        } else {
+<span class="fc" id="L505">            end = size;</span>
+        }
+<span class="fc" id="L507">    }</span>
+
+    /*@
+      @ also
+      @ public normal_behavior
+      @   requires !isEmpty();
+      @   assignable start, full, elements[*];
+      @   ensures full == false;
+      @ also
+      @ public exceptional_behavior
+      @   requires isEmpty();
+      @   assignable \nothing;
+      @   signals_only NoSuchElementException;
+      @*/
+    @Override
+    public E remove() {
+<span class="fc bfc" id="L523" title="All 2 branches covered.">        if (isEmpty()) {</span>
+<span class="fc" id="L524">            throw new NoSuchElementException(&quot;queue is empty&quot;);</span>
+        }
+
+<span class="fc" id="L527">        final E element = elements[start];</span>
+<span class="pc bpc" id="L528" title="1 of 2 branches missed.">        if (element != null) {</span>
+<span class="fc" id="L529">            elements[start++] = null;</span>
+
+<span class="fc bfc" id="L531" title="All 2 branches covered.">            if (start &gt;= maxElements) {</span>
+<span class="fc" id="L532">                start = 0;</span>
+            }
+<span class="fc" id="L534">            full = false;</span>
+        }
+<span class="fc" id="L536">        return element;</span>
+    }
+
+    /**
+     * Returns the number of elements stored in the queue.
+     *
+     * @return this queue's size
+     */
+    /*@
+      @ also
+      @ public normal_behavior
+      @   assignable \nothing;
+      @   ensures \result &gt;= 0 &amp;&amp; \result &lt;= maxElements;
+      @   ensures full ==&gt; \result == maxElements;
+      @   ensures (!full &amp;&amp; end &gt;= start) ==&gt; \result == (end - start);
+      @   ensures (!full &amp;&amp; end &lt; start) ==&gt; \result == (maxElements - start + end);
+      @*/
+    @Override
+    public /*@ strictly_pure @*/ int size() {
+<span class="fc" id="L555">        int size = 0;</span>
+
+<span class="fc bfc" id="L557" title="All 2 branches covered.">        if (end &lt; start) {</span>
+<span class="fc" id="L558">            size = maxElements - start + end;</span>
+<span class="fc bfc" id="L559" title="All 2 branches covered.">        } else if (end == start) {</span>
+<span class="fc bfc" id="L560" title="All 2 branches covered.">            size = full ? maxElements : 0;</span>
+        } else {
+<span class="fc" id="L562">            size = end - start;</span>
+        }
+
+<span class="fc" id="L565">        return size;</span>
+    }
+
+    /**
+     * Serializes this object to an ObjectOutputStream.
+     *
+     * @param out The target ObjectOutputStream.
+     * @throws IOException thrown when an I/O errors occur writing to the target stream.
+     */
+    private void writeObject(final ObjectOutputStream out) throws IOException {
+<span class="fc" id="L575">        out.defaultWriteObject();</span>
+<span class="fc" id="L576">        out.writeInt(size());</span>
+<span class="fc bfc" id="L577" title="All 2 branches covered.">        for (final E e : this) {</span>
+<span class="fc" id="L578">            out.writeObject(e);</span>
+<span class="fc" id="L579">        }</span>
+<span class="fc" id="L580">    }</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

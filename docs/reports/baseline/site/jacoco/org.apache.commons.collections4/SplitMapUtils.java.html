@@ -1,0 +1,340 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SplitMapUtils.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons Collections</a> &gt; <a href="index.source.html" class="el_package">org.apache.commons.collections4</a> &gt; <span class="el_source">SplitMapUtils.java</span></div><h1>SplitMapUtils.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.commons.collections4;
+
+import java.util.Collection;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+
+import org.apache.commons.collections4.collection.UnmodifiableCollection;
+import org.apache.commons.collections4.iterators.UnmodifiableMapIterator;
+import org.apache.commons.collections4.map.EntrySetToMapIteratorAdapter;
+import org.apache.commons.collections4.map.UnmodifiableEntrySet;
+import org.apache.commons.collections4.set.UnmodifiableSet;
+
+/**
+ * Utilities for working with &quot;split maps:&quot; objects that implement {@link Put}
+ * and/or {@link Get} but not {@link Map}.
+ *
+ * @since 4.0
+ * @see Get
+ * @see Put
+ */
+public class SplitMapUtils {
+
+    private static final class WrappedGet&lt;K, V&gt; implements IterableMap&lt;K, V&gt;, Unmodifiable {
+        private final Get&lt;K, V&gt; get;
+
+<span class="fc" id="L43">        private WrappedGet(final Get&lt;K, V&gt; get) {</span>
+<span class="fc" id="L44">            this.get = get;</span>
+<span class="fc" id="L45">        }</span>
+
+        /**
+         * Always throws {@link UnsupportedOperationException}.
+         *
+         * @throws UnsupportedOperationException Always thrown.
+         */
+        @Override
+        public void clear() {
+<span class="fc" id="L54">            throw new UnsupportedOperationException();</span>
+        }
+
+        @Override
+        public boolean containsKey(final Object key) {
+<span class="nc" id="L59">            return get.containsKey(key);</span>
+        }
+
+        @Override
+        public boolean containsValue(final Object value) {
+<span class="fc" id="L64">            return get.containsValue(value);</span>
+        }
+
+        @Override
+        public Set&lt;Map.Entry&lt;K, V&gt;&gt; entrySet() {
+<span class="nc" id="L69">            return UnmodifiableEntrySet.unmodifiableEntrySet(get.entrySet());</span>
+        }
+
+        @Override
+        public boolean equals(final Object arg0) {
+<span class="pc bpc" id="L74" title="1 of 2 branches missed.">            if (arg0 == this) {</span>
+<span class="nc" id="L75">                return true;</span>
+            }
+<span class="pc bpc" id="L77" title="2 of 4 branches missed.">            return arg0 instanceof WrappedGet &amp;&amp; ((WrappedGet&lt;?, ?&gt;) arg0).get.equals(get);</span>
+        }
+
+        @Override
+        public V get(final Object key) {
+<span class="fc" id="L82">            return get.get(key);</span>
+        }
+
+        @Override
+        public int hashCode() {
+<span class="fc" id="L87">            return &quot;WrappedGet&quot;.hashCode() &lt;&lt; 4 | get.hashCode();</span>
+        }
+
+        @Override
+        public boolean isEmpty() {
+<span class="nc" id="L92">            return get.isEmpty();</span>
+        }
+
+        @Override
+        public Set&lt;K&gt; keySet() {
+<span class="nc" id="L97">            return UnmodifiableSet.unmodifiableSet(get.keySet());</span>
+        }
+
+        @Override
+        public MapIterator&lt;K, V&gt; mapIterator() {
+            final MapIterator&lt;K, V&gt; it;
+<span class="pc bpc" id="L103" title="1 of 2 branches missed.">            if (get instanceof IterableGet) {</span>
+<span class="fc" id="L104">                it = ((IterableGet&lt;K, V&gt;) get).mapIterator();</span>
+            } else {
+<span class="nc" id="L106">                it = new EntrySetToMapIteratorAdapter&lt;&gt;(get.entrySet());</span>
+            }
+<span class="fc" id="L108">            return UnmodifiableMapIterator.unmodifiableMapIterator(it);</span>
+        }
+
+        /**
+         * Always throws {@link UnsupportedOperationException}.
+         *
+         * @param key Ignored.
+         * @param value Ignored.
+         * @throws UnsupportedOperationException Always thrown.
+         */
+        @Override
+        public V put(final K key, final V value) {
+<span class="fc" id="L120">            throw new UnsupportedOperationException();</span>
+        }
+
+        /**
+         * Always throws {@link UnsupportedOperationException}.
+         *
+         * @param map Ignored.
+         * @throws UnsupportedOperationException Always thrown.
+         */
+        @Override
+        public void putAll(final Map&lt;? extends K, ? extends V&gt; map) {
+<span class="fc" id="L131">            throw new UnsupportedOperationException();</span>
+        }
+
+        /**
+         * Always throws {@link UnsupportedOperationException}.
+         *
+         * @param key The key whose mapping would be removed.
+         * @throws UnsupportedOperationException Always thrown.
+         */
+        @Override
+        public V remove(final Object key) {
+<span class="fc" id="L142">            throw new UnsupportedOperationException();</span>
+        }
+
+        @Override
+        public int size() {
+<span class="fc" id="L147">            return get.size();</span>
+        }
+
+        @Override
+        public Collection&lt;V&gt; values() {
+<span class="nc" id="L152">            return UnmodifiableCollection.unmodifiableCollection(get.values());</span>
+        }
+    }
+
+    private static final class WrappedPut&lt;K, V&gt; implements Map&lt;K, V&gt;, Put&lt;K, V&gt; {
+        private final Put&lt;K, V&gt; put;
+
+<span class="fc" id="L159">        private WrappedPut(final Put&lt;K, V&gt; put) {</span>
+<span class="fc" id="L160">            this.put = put;</span>
+<span class="fc" id="L161">        }</span>
+
+        @Override
+        public void clear() {
+<span class="fc" id="L165">            put.clear();</span>
+<span class="fc" id="L166">        }</span>
+
+        /**
+         * Always throws {@link UnsupportedOperationException}.
+         *
+         * @param key Ignored.
+         * @throws UnsupportedOperationException Always thrown.
+         */
+        @Override
+        public boolean containsKey(final Object key) {
+<span class="fc" id="L176">            throw new UnsupportedOperationException();</span>
+        }
+
+        /**
+         * Always throws {@link UnsupportedOperationException}.
+         *
+         * @param value Ignored.
+         * @throws UnsupportedOperationException Always thrown.
+         */
+        @Override
+        public boolean containsValue(final Object value) {
+<span class="fc" id="L187">            throw new UnsupportedOperationException();</span>
+        }
+
+        /**
+         * Always throws {@link UnsupportedOperationException}.
+         *
+         * @throws UnsupportedOperationException Always thrown.
+         */
+        @Override
+        public Set&lt;Map.Entry&lt;K, V&gt;&gt; entrySet() {
+<span class="fc" id="L197">            throw new UnsupportedOperationException();</span>
+        }
+
+        @Override
+        public boolean equals(final Object obj) {
+<span class="pc bpc" id="L202" title="1 of 2 branches missed.">            if (obj == this) {</span>
+<span class="nc" id="L203">                return true;</span>
+            }
+<span class="pc bpc" id="L205" title="2 of 4 branches missed.">            return obj instanceof WrappedPut &amp;&amp; ((WrappedPut&lt;?, ?&gt;) obj).put.equals(put);</span>
+        }
+
+        /**
+         * Always throws {@link UnsupportedOperationException}.
+         *
+         * @param key Ignored.
+         * @throws UnsupportedOperationException Always thrown.
+         */
+        @Override
+        public V get(final Object key) {
+<span class="fc" id="L216">            throw new UnsupportedOperationException();</span>
+        }
+
+        @Override
+        public int hashCode() {
+<span class="fc" id="L221">            return &quot;WrappedPut&quot;.hashCode() &lt;&lt; 4 | put.hashCode();</span>
+        }
+
+        /**
+         * Always throws {@link UnsupportedOperationException}.
+         *
+         * @throws UnsupportedOperationException Always thrown.
+         */
+        @Override
+        public boolean isEmpty() {
+<span class="fc" id="L231">            throw new UnsupportedOperationException();</span>
+        }
+
+        /**
+         * Always throws {@link UnsupportedOperationException}.
+         *
+         * @throws UnsupportedOperationException Always thrown.
+         */
+        @Override
+        public Set&lt;K&gt; keySet() {
+<span class="fc" id="L241">            throw new UnsupportedOperationException();</span>
+        }
+
+        @Override
+        @SuppressWarnings(&quot;unchecked&quot;)
+        public V put(final K key, final V value) {
+<span class="fc" id="L247">            return (V) put.put(key, value);</span>
+        }
+
+        @Override
+        public void putAll(final Map&lt;? extends K, ? extends V&gt; t) {
+<span class="fc" id="L252">            put.putAll(t);</span>
+<span class="fc" id="L253">        }</span>
+
+        /**
+         * Always throws {@link UnsupportedOperationException}.
+         *
+         * @param key Ignored.
+         * @throws UnsupportedOperationException Always thrown.
+         */
+        @Override
+        public V remove(final Object key) {
+<span class="fc" id="L263">            throw new UnsupportedOperationException();</span>
+        }
+
+        /**
+         * Always throws {@link UnsupportedOperationException}.
+         *
+         * @throws UnsupportedOperationException Always thrown.
+         */
+        @Override
+        public int size() {
+<span class="fc" id="L273">            throw new UnsupportedOperationException();</span>
+        }
+
+        /**
+         * Always throws {@link UnsupportedOperationException}.
+         *
+         * @throws UnsupportedOperationException Always thrown.
+         */
+        @Override
+        public Collection&lt;V&gt; values() {
+<span class="fc" id="L283">            throw new UnsupportedOperationException();</span>
+        }
+    }
+
+    /**
+     * Gets the specified {@link Get} as an instance of {@link IterableMap}.
+     * If {@code get} implements {@link IterableMap} directly, no conversion will take place.
+     * If {@code get} implements {@link Map} but not {@link IterableMap} it will be decorated.
+     * Otherwise, an {@link Unmodifiable} {@link IterableMap} will be returned.
+     *
+     * @param &lt;K&gt; The key type
+     * @param &lt;V&gt; The value type
+     * @param get to wrap, must not be null
+     * @return {@link IterableMap}
+     * @throws NullPointerException if the argument is null
+     */
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public static &lt;K, V&gt; IterableMap&lt;K, V&gt; readableMap(final Get&lt;K, V&gt; get) {
+<span class="fc" id="L301">        Objects.requireNonNull(get, &quot;get&quot;);</span>
+<span class="fc bfc" id="L302" title="All 2 branches covered.">        if (get instanceof Map) {</span>
+<span class="pc bpc" id="L303" title="1 of 2 branches missed.">            return get instanceof IterableMap ?</span>
+<span class="fc" id="L304">                    (IterableMap&lt;K, V&gt;) get :</span>
+<span class="nc" id="L305">                    MapUtils.iterableMap((Map&lt;K, V&gt;) get);</span>
+        }
+<span class="fc" id="L307">        return new WrappedGet&lt;&gt;(get);</span>
+    }
+
+    /**
+     * Gets the specified {@link Put} as an instanceof {@link Map}.
+     * If {@code put} implements {@link Map} directly, no conversion will take place.
+     * Otherwise, a &lt;em&gt;write-only&lt;/em&gt; {@link Map} will be returned.  On such a {@link Map}
+     * it is recommended that the result of #put(K, V) be discarded as it likely will not
+     * match {@code V} at runtime.
+     *
+     * @param &lt;K&gt; The key type
+     * @param &lt;V&gt; The element type
+     * @param put to wrap, must not be null
+     * @return {@link Map}
+     * @throws NullPointerException if the argument is null
+     */
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public static &lt;K, V&gt; Map&lt;K, V&gt; writableMap(final Put&lt;K, V&gt; put) {
+<span class="fc" id="L325">        Objects.requireNonNull(put, &quot;put&quot;);</span>
+<span class="fc bfc" id="L326" title="All 2 branches covered.">        if (put instanceof Map) {</span>
+<span class="fc" id="L327">            return (Map&lt;K, V&gt;) put;</span>
+        }
+<span class="fc" id="L329">        return new WrappedPut&lt;&gt;(put);</span>
+    }
+
+    /**
+     * Don't allow instances.
+     */
+    private SplitMapUtils() {
+        // empty
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

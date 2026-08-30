@@ -1,0 +1,244 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>UnmodifiableNavigableSet.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons Collections</a> &gt; <a href="index.source.html" class="el_package">org.apache.commons.collections4.set</a> &gt; <span class="el_source">UnmodifiableNavigableSet.java</span></div><h1>UnmodifiableNavigableSet.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.commons.collections4.set;
+
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.NavigableSet;
+import java.util.SortedSet;
+import java.util.function.Predicate;
+
+import org.apache.commons.collections4.Unmodifiable;
+import org.apache.commons.collections4.iterators.UnmodifiableIterator;
+
+/**
+ * Decorates another {@code NavigableSet} to ensure it can't be altered.
+ * &lt;p&gt;
+ * Attempts to modify it will result in an UnsupportedOperationException.
+ * &lt;/p&gt;
+ *
+ * @param &lt;E&gt; The type of the elements in this set
+ * @since 4.1
+ */
+public final class UnmodifiableNavigableSet&lt;E&gt;
+        extends AbstractNavigableSetDecorator&lt;E&gt;
+        implements Unmodifiable {
+
+    /** Serialization version */
+    private static final long serialVersionUID = 20150528L;
+
+    /**
+     * Factory method to create an unmodifiable set.
+     *
+     * @param &lt;E&gt; The element type
+     * @param set  The set to decorate, must not be null
+     * @return A new unmodifiable {@link NavigableSet}
+     * @throws NullPointerException if set is null
+     */
+    public static &lt;E&gt; NavigableSet&lt;E&gt; unmodifiableNavigableSet(final NavigableSet&lt;E&gt; set) {
+<span class="fc bfc" id="L56" title="All 2 branches covered.">        if (set instanceof Unmodifiable) {</span>
+<span class="fc" id="L57">            return set;</span>
+        }
+<span class="fc" id="L59">        return new UnmodifiableNavigableSet&lt;&gt;(set);</span>
+    }
+
+    /**
+     * Constructor that wraps (not copies).
+     *
+     * @param set  The set to decorate, must not be null
+     * @throws NullPointerException if set is null
+     */
+    private UnmodifiableNavigableSet(final NavigableSet&lt;E&gt; set) {
+<span class="fc" id="L69">        super(set);</span>
+<span class="fc" id="L70">    }</span>
+
+    /**
+     * Always throws {@link UnsupportedOperationException}.
+     *
+     * @param object Ignored.
+     * @throws UnsupportedOperationException Always thrown.
+     */
+    @Override
+    public boolean add(final E object) {
+<span class="fc" id="L80">        throw new UnsupportedOperationException();</span>
+    }
+
+    /**
+     * Always throws {@link UnsupportedOperationException}.
+     *
+     * @param coll Ignored.
+     * @throws UnsupportedOperationException Always thrown.
+     */
+    @Override
+    public boolean addAll(final Collection&lt;? extends E&gt; coll) {
+<span class="fc" id="L91">        throw new UnsupportedOperationException();</span>
+    }
+
+    /**
+     * Always throws {@link UnsupportedOperationException}.
+     *
+     * @throws UnsupportedOperationException Always thrown.
+     */
+    @Override
+    public void clear() {
+<span class="fc" id="L101">        throw new UnsupportedOperationException();</span>
+    }
+
+    @Override
+    public Iterator&lt;E&gt; descendingIterator() {
+<span class="fc" id="L106">        return UnmodifiableIterator.unmodifiableIterator(decorated().descendingIterator());</span>
+    }
+
+    // NavigableSet
+    @Override
+    public NavigableSet&lt;E&gt; descendingSet() {
+<span class="fc" id="L112">        return unmodifiableNavigableSet(decorated().descendingSet());</span>
+    }
+
+    @Override
+    public SortedSet&lt;E&gt; headSet(final E toElement) {
+<span class="fc" id="L117">        return UnmodifiableSortedSet.unmodifiableSortedSet(decorated().headSet(toElement));</span>
+    }
+
+    @Override
+    public NavigableSet&lt;E&gt; headSet(final E toElement, final boolean inclusive) {
+<span class="fc" id="L122">        return unmodifiableNavigableSet(decorated().headSet(toElement, inclusive));</span>
+    }
+
+    @Override
+    public Iterator&lt;E&gt; iterator() {
+<span class="fc" id="L127">        return UnmodifiableIterator.unmodifiableIterator(decorated().iterator());</span>
+    }
+
+    /**
+     * Always throws {@link UnsupportedOperationException}.
+     *
+     * @throws UnsupportedOperationException Always thrown.
+     * @since 4.5.0-M1
+     */
+    @Override
+    public E pollFirst() {
+<span class="fc" id="L138">        throw new UnsupportedOperationException();</span>
+    }
+
+    /**
+     * Always throws {@link UnsupportedOperationException}.
+     *
+     * @throws UnsupportedOperationException Always thrown.
+     * @since 4.5.0-M1
+     */
+    @Override
+    public E pollLast() {
+<span class="fc" id="L149">        throw new UnsupportedOperationException();</span>
+    }
+
+    /**
+     * Deserializes the collection in using a custom routine.
+     *
+     * @param in  The input stream
+     * @throws IOException Thrown if an error occurs while reading from the stream
+     * @throws ClassNotFoundException if an object read from the stream cannot be loaded
+     */
+    @SuppressWarnings(&quot;unchecked&quot;) // (1) should only fail if input stream is incorrect
+    private void readObject(final ObjectInputStream in) throws IOException, ClassNotFoundException {
+<span class="fc" id="L161">        in.defaultReadObject();</span>
+<span class="fc" id="L162">        setCollection((Collection&lt;E&gt;) in.readObject()); // (1)</span>
+<span class="fc" id="L163">    }</span>
+
+    /**
+     * Always throws {@link UnsupportedOperationException}.
+     *
+     * @param object Ignored.
+     * @throws UnsupportedOperationException Always thrown.
+     */
+    @Override
+    public boolean remove(final Object object) {
+<span class="fc" id="L173">        throw new UnsupportedOperationException();</span>
+    }
+
+    /**
+     * Always throws {@link UnsupportedOperationException}.
+     *
+     * @param coll Ignored.
+     * @throws UnsupportedOperationException Always thrown.
+     */
+    @Override
+    public boolean removeAll(final Collection&lt;?&gt; coll) {
+<span class="fc" id="L184">        throw new UnsupportedOperationException();</span>
+    }
+
+    /**
+     * Always throws {@link UnsupportedOperationException}.
+     *
+     * @param filter Ignored.
+     * @throws UnsupportedOperationException Always thrown.
+     * @since 4.4
+     */
+    @Override
+    public boolean removeIf(final Predicate&lt;? super E&gt; filter) {
+<span class="fc" id="L196">        throw new UnsupportedOperationException();</span>
+    }
+
+    /**
+     * Always throws {@link UnsupportedOperationException}.
+     *
+     * @param coll Ignored.
+     * @throws UnsupportedOperationException Always thrown.
+     */
+    @Override
+    public boolean retainAll(final Collection&lt;?&gt; coll) {
+<span class="fc" id="L207">        throw new UnsupportedOperationException();</span>
+    }
+
+    @Override
+    public NavigableSet&lt;E&gt; subSet(final E fromElement, final boolean fromInclusive, final E toElement,
+            final boolean toInclusive) {
+<span class="fc" id="L213">        return unmodifiableNavigableSet(decorated().subSet(fromElement, fromInclusive, toElement, toInclusive));</span>
+    }
+
+    // SortedSet
+    @Override
+    public SortedSet&lt;E&gt; subSet(final E fromElement, final E toElement) {
+<span class="fc" id="L219">        return UnmodifiableSortedSet.unmodifiableSortedSet(decorated().subSet(fromElement, toElement));</span>
+    }
+
+    @Override
+    public SortedSet&lt;E&gt; tailSet(final E fromElement) {
+<span class="fc" id="L224">        return UnmodifiableSortedSet.unmodifiableSortedSet(decorated().tailSet(fromElement));</span>
+    }
+
+    @Override
+    public NavigableSet&lt;E&gt; tailSet(final E fromElement, final boolean inclusive) {
+<span class="fc" id="L229">        return unmodifiableNavigableSet(decorated().tailSet(fromElement, inclusive));</span>
+    }
+
+    /**
+     * Serializes this object to an ObjectOutputStream.
+     *
+     * @param out The target ObjectOutputStream.
+     * @throws IOException thrown when an I/O errors occur writing to the target stream.
+     */
+    private void writeObject(final ObjectOutputStream out) throws IOException {
+<span class="fc" id="L239">        out.defaultWriteObject();</span>
+<span class="fc" id="L240">        out.writeObject(decorated());</span>
+<span class="fc" id="L241">    }</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

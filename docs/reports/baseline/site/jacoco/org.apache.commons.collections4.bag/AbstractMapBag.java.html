@@ -1,0 +1,637 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AbstractMapBag.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons Collections</a> &gt; <a href="index.source.html" class="el_package">org.apache.commons.collections4.bag</a> &gt; <span class="el_source">AbstractMapBag.java</span></div><h1>AbstractMapBag.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.commons.collections4.bag;
+
+import java.io.IOException;
+import java.io.InvalidObjectException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.lang.reflect.Array;
+import java.util.Collection;
+import java.util.ConcurrentModificationException;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Objects;
+import java.util.Set;
+
+import org.apache.commons.collections4.Bag;
+import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.collections4.multiset.AbstractMapMultiSet;
+import org.apache.commons.collections4.set.UnmodifiableSet;
+
+/**
+ * Abstract implementation of the {@link Bag} interface to simplify the creation
+ * of subclass implementations.
+ * &lt;p&gt;
+ * Subclasses specify a Map implementation to use as the internal storage. The
+ * map will be used to map bag elements to a number; the number represents the
+ * number of occurrences of that element in the bag.
+ * &lt;/p&gt;
+ *
+ * @param &lt;E&gt; The type of elements in this bag
+ * @since 3.0 (previously DefaultMapBag v2.0)
+ * @deprecated Since 4.6.0, use {@link AbstractMapMultiSet} instead.
+ */
+@Deprecated
+public abstract class AbstractMapBag&lt;E&gt; implements Bag&lt;E&gt; {
+
+    /**
+     * Inner class iterator for the Bag.
+     */
+    static class BagIterator&lt;E&gt; implements Iterator&lt;E&gt; {
+        private final AbstractMapBag&lt;E&gt; parent;
+        private final Iterator&lt;Map.Entry&lt;E, MutableInteger&gt;&gt; entryIterator;
+        private Map.Entry&lt;E, MutableInteger&gt; current;
+        private int itemCount;
+        private final int mods;
+        private boolean canRemove;
+
+        /**
+         * Constructs a new instance.
+         *
+         * @param parent The parent bag
+         */
+<span class="fc" id="L69">        BagIterator(final AbstractMapBag&lt;E&gt; parent) {</span>
+<span class="fc" id="L70">            this.parent = parent;</span>
+<span class="fc" id="L71">            this.entryIterator = parent.map.entrySet().iterator();</span>
+<span class="fc" id="L72">            this.current = null;</span>
+<span class="fc" id="L73">            this.mods = parent.modCount;</span>
+<span class="fc" id="L74">            this.canRemove = false;</span>
+<span class="fc" id="L75">        }</span>
+
+        /** {@inheritDoc} */
+        @Override
+        public boolean hasNext() {
+<span class="fc bfc" id="L80" title="All 4 branches covered.">            return itemCount &gt; 0 || entryIterator.hasNext();</span>
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public E next() {
+<span class="fc bfc" id="L86" title="All 2 branches covered.">            if (parent.modCount != mods) {</span>
+<span class="fc" id="L87">                throw new ConcurrentModificationException();</span>
+            }
+<span class="fc bfc" id="L89" title="All 2 branches covered.">            if (itemCount == 0) {</span>
+<span class="fc" id="L90">                current = entryIterator.next();</span>
+<span class="fc" id="L91">                itemCount = current.getValue().value;</span>
+            }
+<span class="fc" id="L93">            canRemove = true;</span>
+<span class="fc" id="L94">            itemCount--;</span>
+<span class="fc" id="L95">            return current.getKey();</span>
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public void remove() {
+<span class="pc bpc" id="L101" title="1 of 2 branches missed.">            if (parent.modCount != mods) {</span>
+<span class="nc" id="L102">                throw new ConcurrentModificationException();</span>
+            }
+<span class="fc bfc" id="L104" title="All 2 branches covered.">            if (!canRemove) {</span>
+<span class="fc" id="L105">                throw new IllegalStateException();</span>
+            }
+<span class="fc" id="L107">            final MutableInteger mut = current.getValue();</span>
+<span class="fc bfc" id="L108" title="All 2 branches covered.">            if (mut.value &gt; 1) {</span>
+<span class="fc" id="L109">                mut.value--;</span>
+            } else {
+<span class="fc" id="L111">                entryIterator.remove();</span>
+            }
+<span class="fc" id="L113">            parent.size--;</span>
+<span class="fc" id="L114">            canRemove = false;</span>
+<span class="fc" id="L115">        }</span>
+    }
+
+    /**
+     * Mutable integer class for storing the data.
+     */
+    protected static class MutableInteger {
+
+        /** The value of this mutable. */
+        protected int value;
+
+        /**
+         * Constructs a new instance.
+         *
+         * @param value The initial value
+         */
+<span class="fc" id="L131">        MutableInteger(final int value) {</span>
+<span class="fc" id="L132">            this.value = value;</span>
+<span class="fc" id="L133">        }</span>
+
+        @Override
+        public boolean equals(final Object obj) {
+<span class="nc bnc" id="L137" title="All 2 branches missed.">            if (!(obj instanceof MutableInteger)) {</span>
+<span class="nc" id="L138">                return false;</span>
+            }
+<span class="nc bnc" id="L140" title="All 2 branches missed.">            return ((MutableInteger) obj).value == value;</span>
+        }
+
+        @Override
+        public int hashCode() {
+<span class="nc" id="L145">            return value;</span>
+        }
+    }
+
+    /** The map to use to store the data */
+    private transient Map&lt;E, MutableInteger&gt; map;
+
+    /** The current total size of the bag; kept exact past {@link Integer#MAX_VALUE}, {@link #size()} saturates */
+    private long size;
+
+    /** The modification count for fail fast iterators */
+    private transient int modCount;
+
+    /** Unique view of the elements */
+    private transient Set&lt;E&gt; uniqueSet;
+
+    /**
+     * Constructor needed for subclass serialization.
+     */
+<span class="fc" id="L164">    protected AbstractMapBag() {</span>
+<span class="fc" id="L165">    }</span>
+
+    /**
+     * Constructor that assigns the specified Map as the backing store. The map
+     * must be empty and non-null.
+     *
+     * @param map The map to assign
+     */
+<span class="fc" id="L173">    protected AbstractMapBag(final Map&lt;E, MutableInteger&gt; map) {</span>
+<span class="fc" id="L174">        this.map = Objects.requireNonNull(map, &quot;map&quot;);</span>
+<span class="fc" id="L175">    }</span>
+
+    /**
+     * Constructs a new instance that assigns the specified Map as the backing store. The map
+     * must be empty and non-null. The bag is filled from the iterable elements.
+     *
+     * @param map The map to assign.
+     * @param iterable The bag is filled from these iterable elements.
+     */
+    protected AbstractMapBag(final Map&lt;E, MutableInteger&gt; map, final Iterable&lt;? extends E&gt; iterable) {
+<span class="fc" id="L185">        this(map);</span>
+<span class="fc" id="L186">        iterable.forEach(this::add);</span>
+<span class="fc" id="L187">    }</span>
+
+    /**
+     * Adds a new element to the bag, incrementing its count in the underlying map.
+     *
+     * @param object The object to add
+     * @return {@code true} if the object was not already in the {@code uniqueSet}
+     */
+    @Override
+    public boolean add(final E object) {
+<span class="fc" id="L197">        return add(object, 1);</span>
+    }
+
+    /**
+     * Adds a new element to the bag, incrementing its count in the map.
+     * The count of an element saturates at {@code Integer.MAX_VALUE}; copies
+     * that would take it past that limit are not added.
+     *
+     * @param object The object to search for
+     * @param nCopies The number of copies to add
+     * @return {@code true} if the object was not already in the {@code uniqueSet}
+     */
+    @Override
+    public boolean add(final E object, final int nCopies) {
+<span class="fc" id="L211">        modCount++;</span>
+<span class="fc bfc" id="L212" title="All 2 branches covered.">        if (nCopies &gt; 0) {</span>
+<span class="fc" id="L213">            final MutableInteger mut = map.get(object);</span>
+<span class="fc bfc" id="L214" title="All 2 branches covered.">            if (mut == null) {</span>
+<span class="fc" id="L215">                map.put(object, new MutableInteger(nCopies));</span>
+<span class="fc" id="L216">                size += nCopies;</span>
+<span class="fc" id="L217">                return true;</span>
+            }
+<span class="fc" id="L219">            final int applied = Math.min(nCopies, Integer.MAX_VALUE - mut.value);</span>
+<span class="fc" id="L220">            mut.value += applied;</span>
+<span class="fc" id="L221">            size += applied;</span>
+        }
+<span class="fc" id="L223">        return false;</span>
+    }
+
+    /**
+     * Invokes {@link #add(Object)} for each element in the given collection.
+     *
+     * @param coll The collection to add
+     * @return {@code true} if this call changed the bag
+     */
+    @Override
+    public boolean addAll(final Collection&lt;? extends E&gt; coll) {
+<span class="fc" id="L234">        boolean changed = false;</span>
+<span class="fc bfc" id="L235" title="All 2 branches covered.">        for (final E current : coll) {</span>
+<span class="fc" id="L236">            final boolean added = add(current);</span>
+<span class="fc bfc" id="L237" title="All 4 branches covered.">            changed = changed || added;</span>
+<span class="fc" id="L238">        }</span>
+<span class="fc" id="L239">        return changed;</span>
+    }
+
+    /**
+     * Clears the bag by clearing the underlying map.
+     */
+    @Override
+    public void clear() {
+<span class="fc" id="L247">        modCount++;</span>
+<span class="fc" id="L248">        map.clear();</span>
+<span class="fc" id="L249">        size = 0;</span>
+<span class="fc" id="L250">    }</span>
+
+    /**
+     * Determines if the bag contains the given element by checking if the
+     * underlying map contains the element as a key.
+     *
+     * @param object The object to search for
+     * @return true if the bag contains the given element
+     */
+    @Override
+    public boolean contains(final Object object) {
+<span class="fc" id="L261">        return map.containsKey(object);</span>
+    }
+
+    /**
+     * Returns {@code true} if the bag contains all elements in the given
+     * collection, respecting cardinality.
+     *
+     * @param other The bag to check against
+     * @return {@code true} if the Bag contains all the collection
+     */
+    boolean containsAll(final Bag&lt;?&gt; other) {
+<span class="fc bfc" id="L272" title="All 2 branches covered.">        for (final Object current : other.uniqueSet()) {</span>
+<span class="fc bfc" id="L273" title="All 2 branches covered.">            if (getCount(current) &lt; other.getCount(current)) {</span>
+<span class="fc" id="L274">                return false;</span>
+            }
+<span class="fc" id="L276">        }</span>
+<span class="fc" id="L277">        return true;</span>
+    }
+
+    /**
+     * Determines if the bag contains the given elements.
+     *
+     * @param coll The collection to check against
+     * @return {@code true} if the Bag contains all the collection
+     */
+    @Override
+    public boolean containsAll(final Collection&lt;?&gt; coll) {
+<span class="pc bpc" id="L288" title="1 of 2 branches missed.">        if (coll instanceof Bag) {</span>
+<span class="nc" id="L289">            return containsAll((Bag&lt;?&gt;) coll);</span>
+        }
+<span class="fc" id="L291">        return containsAll(new HashBag&lt;&gt;(coll));</span>
+    }
+
+    /**
+     * Reads the map in using a custom routine.
+     *
+     * @param map The map to use
+     * @param in The input stream
+     * @throws IOException any of the usual I/O related exceptions
+     * @throws ClassNotFoundException if the stream contains an object which class cannot be loaded
+     * @throws ClassCastException if the stream does not contain the correct objects
+     */
+    protected void doReadObject(final Map&lt;E, MutableInteger&gt; map, final ObjectInputStream in)
+            throws IOException, ClassNotFoundException {
+<span class="fc" id="L305">        this.map = map;</span>
+<span class="fc" id="L306">        final int entrySize = in.readInt();</span>
+<span class="fc bfc" id="L307" title="All 2 branches covered.">        for (int i = 0; i &lt; entrySize; i++) {</span>
+            @SuppressWarnings(&quot;unchecked&quot;) // This will fail at runtime if the stream is incorrect
+<span class="fc" id="L309">            final E obj = (E) in.readObject();</span>
+<span class="fc" id="L310">            final int count = in.readInt();</span>
+<span class="fc bfc" id="L311" title="All 2 branches covered.">            if (count &lt; 1) {</span>
+<span class="fc" id="L312">                throw new InvalidObjectException(&quot;Invalid count for entry (must be &gt;= 1): &quot; + count);</span>
+            }
+<span class="fc" id="L314">            map.put(obj, new MutableInteger(count));</span>
+<span class="fc" id="L315">            size += count;</span>
+        }
+<span class="fc" id="L317">    }</span>
+
+    /**
+     * Writes the map out using a custom routine.
+     *
+     * @param out The output stream
+     * @throws IOException any of the usual I/O related exceptions
+     */
+    protected void doWriteObject(final ObjectOutputStream out) throws IOException {
+<span class="fc" id="L326">        out.writeInt(map.size());</span>
+<span class="fc bfc" id="L327" title="All 2 branches covered.">        for (final Entry&lt;E, MutableInteger&gt; entry : map.entrySet()) {</span>
+<span class="fc" id="L328">            out.writeObject(entry.getKey());</span>
+<span class="fc" id="L329">            out.writeInt(entry.getValue().value);</span>
+<span class="fc" id="L330">        }</span>
+<span class="fc" id="L331">    }</span>
+
+    /**
+     * Compares this Bag to another. This Bag equals another Bag if it contains
+     * the same number of occurrences of the same elements.
+     *
+     * @param object The Bag to compare to
+     * @return true if equal
+     */
+    @Override
+    public boolean equals(final Object object) {
+<span class="fc bfc" id="L342" title="All 2 branches covered.">        if (object == this) {</span>
+<span class="fc" id="L343">            return true;</span>
+        }
+<span class="fc bfc" id="L345" title="All 2 branches covered.">        if (!(object instanceof Bag)) {</span>
+<span class="fc" id="L346">            return false;</span>
+        }
+<span class="fc" id="L348">        final Bag&lt;?&gt; other = (Bag&lt;?&gt;) object;</span>
+<span class="fc bfc" id="L349" title="All 2 branches covered.">        if (other.size() != size()) {</span>
+<span class="fc" id="L350">            return false;</span>
+        }
+<span class="fc bfc" id="L352" title="All 2 branches covered.">        for (final E element : map.keySet()) {</span>
+<span class="pc bpc" id="L353" title="1 of 2 branches missed.">            if (other.getCount(element) != getCount(element)) {</span>
+<span class="nc" id="L354">                return false;</span>
+            }
+<span class="fc" id="L356">        }</span>
+<span class="fc" id="L357">        return true;</span>
+    }
+
+    /**
+     * Gets the number of occurrence of the given element in this bag by
+     * looking up its count in the underlying map.
+     *
+     * @param object The object to search for
+     * @return The number of occurrences of the object, zero if not found
+     */
+    @Override
+    public int getCount(final Object object) {
+<span class="fc" id="L369">        final MutableInteger count = map.get(object);</span>
+<span class="fc bfc" id="L370" title="All 2 branches covered.">        if (count != null) {</span>
+<span class="fc" id="L371">            return count.value;</span>
+        }
+<span class="fc" id="L373">        return 0;</span>
+    }
+
+    /**
+     * Utility method for implementations to access the map that backs this bag.
+     * Not intended for interactive use outside of subclasses.
+     *
+     * @return The map being used by the Bag
+     */
+    protected Map&lt;E, MutableInteger&gt; getMap() {
+<span class="fc" id="L383">        return map;</span>
+    }
+
+    /**
+     * Gets a hash code for the Bag compatible with the definition of equals.
+     * The hash code is defined as the sum total of a hash code for each
+     * element. The per element hash code is defined as
+     * {@code (e==null ? 0 : e.hashCode()) ^ noOccurrences)}. This hash code
+     * is compatible with the Set interface.
+     *
+     * @return The hash code of the Bag
+     */
+    @Override
+    public int hashCode() {
+<span class="fc" id="L397">        int total = 0;</span>
+<span class="fc bfc" id="L398" title="All 2 branches covered.">        for (final Entry&lt;E, MutableInteger&gt; entry : map.entrySet()) {</span>
+<span class="fc" id="L399">            final E element = entry.getKey();</span>
+<span class="fc" id="L400">            final MutableInteger count = entry.getValue();</span>
+<span class="pc bpc" id="L401" title="1 of 2 branches missed.">            total += (element == null ? 0 : element.hashCode()) ^ count.value;</span>
+<span class="fc" id="L402">        }</span>
+<span class="fc" id="L403">        return total;</span>
+    }
+
+    /**
+     * Returns true if the underlying map is empty.
+     *
+     * @return true if bag is empty
+     */
+    @Override
+    public boolean isEmpty() {
+<span class="fc" id="L413">        return map.isEmpty();</span>
+    }
+
+    /**
+     * Gets an iterator over the bag elements. Elements present in the Bag more
+     * than once will be returned repeatedly.
+     *
+     * @return The iterator
+     */
+    @Override
+    public Iterator&lt;E&gt; iterator() {
+<span class="fc" id="L424">        return new BagIterator&lt;&gt;(this);</span>
+    }
+
+    /**
+     * Removes all copies of the specified object from the bag.
+     *
+     * @param object The object to remove
+     * @return true if the bag changed
+     */
+    @Override
+    public boolean remove(final Object object) {
+<span class="fc" id="L435">        final MutableInteger mut = map.get(object);</span>
+<span class="fc bfc" id="L436" title="All 2 branches covered.">        if (mut == null) {</span>
+<span class="fc" id="L437">            return false;</span>
+        }
+<span class="fc" id="L439">        modCount++;</span>
+<span class="fc" id="L440">        map.remove(object);</span>
+<span class="fc" id="L441">        size -= mut.value;</span>
+<span class="fc" id="L442">        return true;</span>
+    }
+
+    /**
+     * Removes a specified number of copies of an object from the bag.
+     *
+     * @param object The object to remove
+     * @param nCopies The number of copies to remove
+     * @return true if the bag changed
+     */
+    @Override
+    public boolean remove(final Object object, final int nCopies) {
+<span class="fc" id="L454">        final MutableInteger mut = map.get(object);</span>
+<span class="fc bfc" id="L455" title="All 2 branches covered.">        if (mut == null) {</span>
+<span class="fc" id="L456">            return false;</span>
+        }
+<span class="fc bfc" id="L458" title="All 2 branches covered.">        if (nCopies &lt;= 0) {</span>
+<span class="fc" id="L459">            return false;</span>
+        }
+<span class="fc" id="L461">        modCount++;</span>
+<span class="fc bfc" id="L462" title="All 2 branches covered.">        if (nCopies &lt; mut.value) {</span>
+<span class="fc" id="L463">            mut.value -= nCopies;</span>
+<span class="fc" id="L464">            size -= nCopies;</span>
+        } else {
+<span class="fc" id="L466">            map.remove(object);</span>
+<span class="fc" id="L467">            size -= mut.value;</span>
+        }
+<span class="fc" id="L469">        return true;</span>
+    }
+
+    /**
+     * Removes objects from the bag according to their count in the specified
+     * collection.
+     *
+     * @param coll The collection to use
+     * @return true if the bag changed
+     */
+    @Override
+    public boolean removeAll(final Collection&lt;?&gt; coll) {
+<span class="fc" id="L481">        boolean result = false;</span>
+<span class="pc bpc" id="L482" title="1 of 2 branches missed.">        if (coll != null) {</span>
+<span class="fc bfc" id="L483" title="All 2 branches covered.">            for (final Object current : coll) {</span>
+<span class="fc" id="L484">                final boolean changed = remove(current, 1);</span>
+<span class="pc bpc" id="L485" title="1 of 4 branches missed.">                result = result || changed;</span>
+<span class="fc" id="L486">            }</span>
+        }
+<span class="fc" id="L488">        return result;</span>
+    }
+
+    /**
+     * Remove any members of the bag that are not in the given bag, respecting
+     * cardinality.
+     *
+     * @see #retainAll(Collection)
+     * @param other The bag to retain
+     * @return {@code true} if this call changed the collection
+     */
+    boolean retainAll(final Bag&lt;?&gt; other) {
+<span class="fc" id="L500">        boolean result = false;</span>
+<span class="fc" id="L501">        final Bag&lt;E&gt; excess = new HashBag&lt;&gt;();</span>
+<span class="fc bfc" id="L502" title="All 2 branches covered.">        for (final E current : uniqueSet()) {</span>
+<span class="fc" id="L503">            final int myCount = getCount(current);</span>
+<span class="fc" id="L504">            final int otherCount = other.getCount(current);</span>
+<span class="fc bfc" id="L505" title="All 4 branches covered.">            if (1 &lt;= otherCount &amp;&amp; otherCount &lt;= myCount) {</span>
+<span class="fc" id="L506">                excess.add(current, myCount - otherCount);</span>
+<span class="fc bfc" id="L507" title="All 2 branches covered.">            } else if (otherCount == 0) {</span>
+<span class="fc" id="L508">                excess.add(current, myCount);</span>
+            }
+<span class="fc" id="L510">        }</span>
+<span class="fc bfc" id="L511" title="All 2 branches covered.">        if (!excess.isEmpty()) {</span>
+<span class="fc" id="L512">            result = removeAll(excess);</span>
+        }
+<span class="fc" id="L514">        return result;</span>
+    }
+
+    /**
+     * Remove any members of the bag that are not in the given bag, respecting
+     * cardinality.
+     *
+     * @param coll The collection to retain
+     * @return true if this call changed the collection
+     */
+    @Override
+    public boolean retainAll(final Collection&lt;?&gt; coll) {
+<span class="fc bfc" id="L526" title="All 2 branches covered.">        if (coll instanceof Bag) {</span>
+<span class="fc" id="L527">            return retainAll((Bag&lt;?&gt;) coll);</span>
+        }
+<span class="fc" id="L529">        return retainAll(new HashBag&lt;&gt;(coll));</span>
+    }
+
+    /**
+     * Returns the number of elements in this bag, or {@code Integer.MAX_VALUE}
+     * if the bag contains more than {@code Integer.MAX_VALUE} elements.
+     *
+     * @return current size of the bag
+     */
+    @Override
+    public int size() {
+<span class="fc" id="L540">        return (int) Math.min(size, Integer.MAX_VALUE);</span>
+    }
+
+    /**
+     * Returns an array of all of this bag's elements.
+     *
+     * @return An array of all of this bag's elements
+     */
+    @Override
+    public Object[] toArray() {
+<span class="fc" id="L550">        final Object[] result = new Object[size()];</span>
+<span class="fc" id="L551">        int i = 0;</span>
+<span class="fc bfc" id="L552" title="All 2 branches covered.">        for (final E current : map.keySet()) {</span>
+<span class="fc bfc" id="L553" title="All 2 branches covered.">            for (int index = getCount(current); index &gt; 0; index--) {</span>
+<span class="fc" id="L554">                result[i++] = current;</span>
+            }
+<span class="fc" id="L556">        }</span>
+<span class="fc" id="L557">        return result;</span>
+    }
+
+    /**
+     * Returns an array of all of this bag's elements.
+     * If the input array has more elements than are in the bag,
+     * trailing elements will be set to null.
+     *
+     * @param &lt;T&gt; The type of the array elements
+     * @param array The array to populate
+     * @return An array of all of this bag's elements
+     * @throws ArrayStoreException if the runtime type of the specified array is not
+     *   a supertype of the runtime type of the elements in this list
+     * @throws NullPointerException if the specified array is null
+     */
+    @Override
+    public &lt;T&gt; T[] toArray(T[] array) {
+<span class="fc" id="L574">        final int size = size();</span>
+<span class="fc bfc" id="L575" title="All 2 branches covered.">        if (array.length &lt; size) {</span>
+            @SuppressWarnings(&quot;unchecked&quot;) // safe as both are of type T
+<span class="fc" id="L577">            final T[] unchecked = (T[]) Array.newInstance(array.getClass().getComponentType(), size);</span>
+<span class="fc" id="L578">            array = unchecked;</span>
+        }
+
+<span class="fc" id="L581">        int i = 0;</span>
+<span class="fc bfc" id="L582" title="All 2 branches covered.">        for (final E current : map.keySet()) {</span>
+<span class="fc bfc" id="L583" title="All 2 branches covered.">            for (int index = getCount(current); index &gt; 0; index--) {</span>
+                // unsafe, will throw ArrayStoreException if types are not compatible, see Javadoc
+                @SuppressWarnings(&quot;unchecked&quot;)
+<span class="fc" id="L586">                final T unchecked = (T) current;</span>
+<span class="fc" id="L587">                array[i++] = unchecked;</span>
+            }
+<span class="fc" id="L589">        }</span>
+<span class="fc bfc" id="L590" title="All 2 branches covered.">        while (i &lt; array.length) {</span>
+<span class="fc" id="L591">            array[i++] = null;</span>
+        }
+<span class="fc" id="L593">        return array;</span>
+    }
+
+    /**
+     * Implement a toString() method suitable for debugging.
+     *
+     * @return A debugging toString
+     */
+    @Override
+    public String toString() {
+<span class="fc bfc" id="L603" title="All 2 branches covered.">        if (isEmpty()) {</span>
+<span class="fc" id="L604">            return &quot;[]&quot;;</span>
+        }
+<span class="fc" id="L606">        final StringBuilder buf = new StringBuilder();</span>
+<span class="fc" id="L607">        buf.append(CollectionUtils.DEFAULT_TOSTRING_PREFIX);</span>
+<span class="fc" id="L608">        final Iterator&lt;E&gt; it = uniqueSet().iterator();</span>
+<span class="fc bfc" id="L609" title="All 2 branches covered.">        while (it.hasNext()) {</span>
+<span class="fc" id="L610">            final Object current = it.next();</span>
+<span class="fc" id="L611">            final int count = getCount(current);</span>
+<span class="fc" id="L612">            buf.append(count);</span>
+<span class="fc" id="L613">            buf.append(CollectionUtils.COLON);</span>
+<span class="fc" id="L614">            buf.append(current);</span>
+<span class="fc bfc" id="L615" title="All 2 branches covered.">            if (it.hasNext()) {</span>
+<span class="fc" id="L616">                buf.append(CollectionUtils.COMMA);</span>
+            }
+<span class="fc" id="L618">        }</span>
+<span class="fc" id="L619">        buf.append(CollectionUtils.DEFAULT_TOSTRING_SUFFIX);</span>
+<span class="fc" id="L620">        return buf.toString();</span>
+    }
+
+    /**
+     * Returns an unmodifiable view of the underlying map's key set.
+     *
+     * @return The set of unique elements in this bag
+     */
+    @Override
+    public Set&lt;E&gt; uniqueSet() {
+<span class="fc bfc" id="L630" title="All 2 branches covered.">        if (uniqueSet == null) {</span>
+<span class="fc" id="L631">            uniqueSet = UnmodifiableSet.&lt;E&gt;unmodifiableSet(map.keySet());</span>
+        }
+<span class="fc" id="L633">        return uniqueSet;</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

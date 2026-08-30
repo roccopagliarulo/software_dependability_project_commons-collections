@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DemoApp.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons Collections</a> &gt; <a href="index.source.html" class="el_package">org.apache.commons.collections4.demo</a> &gt; <span class="el_source">DemoApp.java</span></div><h1>DemoApp.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.commons.collections4.demo;
+
+import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpHandler;
+import com.sun.net.httpserver.HttpServer;
+import org.apache.commons.collections4.queue.CircularFifoQueue;
+
+import java.io.IOException;
+import java.io.OutputStream;
+import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
+
+<span class="nc" id="L29">public class DemoApp {</span>
+
+<span class="nc" id="L31">    private static final CircularFifoQueue&lt;String&gt; queue = new CircularFifoQueue&lt;&gt;(5);</span>
+
+    public static void main(String[] args) throws IOException {
+<span class="nc" id="L34">        int port = 8080;</span>
+<span class="nc" id="L35">        HttpServer server = HttpServer.create(new InetSocketAddress(port), 0);</span>
+
+<span class="nc" id="L37">        server.createContext(&quot;/&quot;, new IndexHandler());</span>
+<span class="nc" id="L38">        server.createContext(&quot;/api/queue/offer&quot;, new OfferHandler());</span>
+<span class="nc" id="L39">        server.createContext(&quot;/api/queue/poll&quot;, new PollHandler());</span>
+<span class="nc" id="L40">        server.createContext(&quot;/api/queue/status&quot;, new StatusHandler());</span>
+
+<span class="nc" id="L42">        server.setExecutor(null);</span>
+<span class="nc" id="L43">        System.out.println(&quot;Web App avviata con successo su http://localhost:&quot; + port);</span>
+<span class="nc" id="L44">        server.start();</span>
+<span class="nc" id="L45">    }</span>
+
+    // Serve la pagina HTML con interfaccia grafica moderna
+<span class="nc" id="L48">    static class IndexHandler implements HttpHandler {</span>
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+<span class="nc" id="L51">            String html = &quot;&lt;!DOCTYPE html&gt;&quot; +</span>
+                    &quot;&lt;html lang='it'&gt;&quot; +
+                    &quot;&lt;head&gt;&quot; +
+                    &quot;&lt;meta charset='UTF-8'&gt;&quot; +
+                    &quot;&lt;title&gt;CircularFifoQueue Demo&lt;/title&gt;&quot; +
+                    &quot;&lt;style&gt;&quot; +
+                    &quot;body { font-family: Arial, sans-serif; background: #f4f6f9; margin: 40px; }&quot; +
+                    &quot;.card { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); max-width: 600px; margin: auto; }&quot; +
+                    &quot;h2 { color: #333; }&quot; +
+                    &quot;input[type=text] { width: 70%; padding: 10px; margin-right: 5px; border: 1px solid #ccc; border-radius: 4px; }&quot; +
+                    &quot;button { padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }&quot; +
+                    &quot;.btn-add { background: #28a745; color: white; }&quot; +
+                    &quot;.btn-poll { background: #dc3545; color: white; margin-top: 10px; }&quot; +
+                    &quot;.status-box { background: #e9ecef; padding: 15px; border-radius: 4px; margin-top: 20px; font-family: monospace; }&quot; +
+                    &quot;&lt;/style&gt;&quot; +
+                    &quot;&lt;/head&gt;&quot; +
+                    &quot;&lt;body&gt;&quot; +
+                    &quot;&lt;div class='card'&gt;&quot; +
+                    &quot;&lt;h2&gt;Demo: CircularFifoQueue (Capacità = 5)&lt;/h2&gt;&quot; +
+                    &quot;&lt;div&gt;&quot; +
+                    &quot;&lt;input type='text' id='elemInput' placeholder='Inserisci elemento...'&gt;&quot; +
+                    &quot;&lt;button class='btn-add' onclick='addElement()'&gt;Aggiungi (Offer)&lt;/button&gt;&quot; +
+                    &quot;&lt;/div&gt;&quot; +
+                    &quot;&lt;div&gt;&quot; +
+                    &quot;&lt;button class='btn-poll' onclick='pollElement()'&gt;Estrai di testa (Poll)&lt;/button&gt;&quot; +
+                    &quot;&lt;/div&gt;&quot; +
+                    &quot;&lt;div class='status-box' id='statusBox'&gt;Caricamento stato...&lt;/div&gt;&quot; +
+                    &quot;&lt;/div&gt;&quot; +
+                    &quot;&lt;script&gt;&quot; +
+                    &quot;async function updateStatus() {&quot; +
+                    &quot;  const res = await fetch('/api/queue/status');&quot; +
+                    &quot;  const data = await res.json();&quot; +
+                    &quot;  document.getElementById('statusBox').innerHTML = &quot; +
+                    &quot;    '&lt;b&gt;Dimensione:&lt;/b&gt; ' + data.size + '/' + data.maxSize + '&lt;br&gt;' +&quot; +
+                    &quot;    '&lt;b&gt;Piena:&lt;/b&gt; ' + (data.isFull ? '&lt;span style=\&quot;color:red;\&quot;&gt;SI&lt;/span&gt;' : 'NO') + '&lt;br&gt;' +&quot; +
+                    &quot;    '&lt;b&gt;Elementi:&lt;/b&gt; ' + JSON.stringify(data.elements);&quot; +
+                    &quot;}&quot; +
+                    &quot;async function addElement() {&quot; +
+                    &quot;  const input = document.getElementById('elemInput');&quot; +
+                    &quot;  if(!input.value) return;&quot; +
+                    &quot;  await fetch('/api/queue/offer?element=' + encodeURIComponent(input.value), { method: 'POST' });&quot; +
+                    &quot;  input.value = '';&quot; +
+                    &quot;  updateStatus();&quot; +
+                    &quot;}&quot; +
+                    &quot;async function pollElement() {&quot; +
+                    &quot;  const res = await fetch('/api/queue/poll', { method: 'POST' });&quot; +
+                    &quot;  const data = await res.json();&quot; +
+                    &quot;  if(data.extracted) alert('Estratto: ' + data.extracted);&quot; +
+                    &quot;  else alert('La coda è vuota!');&quot; +
+                    &quot;  updateStatus();&quot; +
+                    &quot;}&quot; +
+                    &quot;updateStatus();&quot; +
+                    &quot;&lt;/script&gt;&quot; +
+                    &quot;&lt;/body&gt;&quot; +
+                    &quot;&lt;/html&gt;&quot;;
+
+<span class="nc" id="L107">            exchange.getResponseHeaders().set(&quot;Content-Type&quot;, &quot;text/html; charset=UTF-8&quot;);</span>
+<span class="nc" id="L108">            byte[] bytes = html.getBytes(StandardCharsets.UTF_8);</span>
+<span class="nc" id="L109">            exchange.sendResponseHeaders(200, bytes.length);</span>
+<span class="nc" id="L110">            try (OutputStream os = exchange.getResponseBody()) {</span>
+<span class="nc" id="L111">                os.write(bytes);</span>
+            }
+<span class="nc" id="L113">        }</span>
+    }
+
+<span class="nc" id="L116">    static class OfferHandler implements HttpHandler {</span>
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+<span class="nc bnc" id="L119" title="All 2 branches missed.">            if (&quot;POST&quot;.equalsIgnoreCase(exchange.getRequestMethod())) {</span>
+<span class="nc" id="L120">                String query = exchange.getRequestURI().getQuery();</span>
+<span class="nc bnc" id="L121" title="All 4 branches missed.">                if (query != null &amp;&amp; query.startsWith(&quot;element=&quot;)) {</span>
+<span class="nc" id="L122">                    String value = query.substring(&quot;element=&quot;.length());</span>
+<span class="nc" id="L123">                    queue.offer(value);</span>
+                }
+            }
+<span class="nc" id="L126">            sendJsonResponse(exchange, &quot;{\&quot;status\&quot;:\&quot;ok\&quot;}&quot;);</span>
+<span class="nc" id="L127">        }</span>
+    }
+
+<span class="nc" id="L130">    static class PollHandler implements HttpHandler {</span>
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+<span class="nc" id="L133">            String extracted = queue.poll();</span>
+<span class="nc bnc" id="L134" title="All 2 branches missed.">            String json = (extracted == null) ? &quot;{\&quot;extracted\&quot;:null}&quot; : &quot;{\&quot;extracted\&quot;:\&quot;&quot; + extracted + &quot;\&quot;}&quot;;</span>
+<span class="nc" id="L135">            sendJsonResponse(exchange, json);</span>
+<span class="nc" id="L136">        }</span>
+    }
+
+<span class="nc" id="L139">    static class StatusHandler implements HttpHandler {</span>
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+<span class="nc" id="L142">            StringBuilder elementsJson = new StringBuilder(&quot;[&quot;);</span>
+<span class="nc" id="L143">            int i = 0;</span>
+<span class="nc bnc" id="L144" title="All 2 branches missed.">            for (String elem : queue) {</span>
+<span class="nc bnc" id="L145" title="All 2 branches missed.">                if (i &gt; 0) elementsJson.append(&quot;,&quot;);</span>
+<span class="nc" id="L146">                elementsJson.append(&quot;\&quot;&quot;).append(elem).append(&quot;\&quot;&quot;);</span>
+<span class="nc" id="L147">                i++;</span>
+<span class="nc" id="L148">            }</span>
+<span class="nc" id="L149">            elementsJson.append(&quot;]&quot;);</span>
+
+<span class="nc" id="L151">            String json = &quot;{&quot; +</span>
+<span class="nc" id="L152">                    &quot;\&quot;size\&quot;:&quot; + queue.size() + &quot;,&quot; +</span>
+<span class="nc" id="L153">                    &quot;\&quot;maxSize\&quot;:&quot; + queue.maxSize() + &quot;,&quot; +</span>
+<span class="nc" id="L154">                    &quot;\&quot;isFull\&quot;:&quot; + queue.isAtFullCapacity() + &quot;,&quot; +</span>
+                    &quot;\&quot;elements\&quot;:&quot; + elementsJson +
+                    &quot;}&quot;;
+<span class="nc" id="L157">            sendJsonResponse(exchange, json);</span>
+<span class="nc" id="L158">        }</span>
+    }
+
+    private static void sendJsonResponse(HttpExchange exchange, String json) throws IOException {
+<span class="nc" id="L162">        exchange.getResponseHeaders().set(&quot;Content-Type&quot;, &quot;application/json; charset=UTF-8&quot;);</span>
+<span class="nc" id="L163">        byte[] bytes = json.getBytes(StandardCharsets.UTF_8);</span>
+<span class="nc" id="L164">        exchange.sendResponseHeaders(200, bytes.length);</span>
+<span class="nc" id="L165">        try (OutputStream os = exchange.getResponseBody()) {</span>
+<span class="nc" id="L166">            os.write(bytes);</span>
+        }
+<span class="nc" id="L168">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

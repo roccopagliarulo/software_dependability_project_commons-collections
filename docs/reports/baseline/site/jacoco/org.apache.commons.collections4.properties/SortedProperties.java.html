@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SortedProperties.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons Collections</a> &gt; <a href="index.source.html" class="el_package">org.apache.commons.collections4.properties</a> &gt; <span class="el_source">SortedProperties.java</span></div><h1>SortedProperties.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.commons.collections4.properties;
+
+import java.util.AbstractMap;
+import java.util.Collections;
+import java.util.Enumeration;
+import java.util.LinkedHashSet;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.function.BiConsumer;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+/**
+ * A drop-in replacement for {@link Properties} for sorting keys.
+ * &lt;p&gt;
+ * Overrides {@link Properties#keys()} to sort keys. Allows other methods on the superclass to work with sorted keys.
+ * &lt;/p&gt;
+ *
+ * @see SortedPropertiesFactory#INSTANCE
+ * @since 4.2
+ */
+public class SortedProperties extends Properties {
+
+    private static final long serialVersionUID = 1L;
+
+    /**
+     * Constructs a new instance.
+     */
+<span class="fc" id="L48">    public SortedProperties() {</span>
+        // empty
+<span class="fc" id="L50">    }</span>
+
+    @Override
+    public Set&lt;Map.Entry&lt;Object, Object&gt;&gt; entrySet() {
+<span class="fc" id="L54">        return keyStream().map(k -&gt; new AbstractMap.SimpleEntry&lt;&gt;(k, get(k))).collect(Collectors.toCollection(LinkedHashSet::new));</span>
+    }
+
+    /**
+     * Enumerates all key/value pairs in the specified TreeSet and omits the property if the key or value is not a string.
+     *
+     * @param result The result set to populate.
+     * @return The given set.
+     */
+    private synchronized TreeSet&lt;String&gt; enumerateStringProperties(final TreeSet&lt;String&gt; result) {
+<span class="pc bpc" id="L64" title="1 of 2 branches missed.">        if (defaults != null) {</span>
+<span class="nc" id="L65">            result.addAll(defaults.stringPropertyNames());</span>
+        }
+<span class="fc bfc" id="L67" title="All 2 branches covered.">        for (final Enumeration&lt;?&gt; e = keys(); e.hasMoreElements();) {</span>
+<span class="fc" id="L68">            final Object k = e.nextElement();</span>
+<span class="fc" id="L69">            final Object v = get(k);</span>
+<span class="pc bpc" id="L70" title="2 of 4 branches missed.">            if (k instanceof String &amp;&amp; v instanceof String) {</span>
+<span class="fc" id="L71">                result.add((String) k);</span>
+            }
+<span class="fc" id="L73">        }</span>
+<span class="fc" id="L74">        return result;</span>
+    }
+
+    @Override
+    public synchronized void forEach(final BiConsumer&lt;? super Object, ? super Object&gt; action) {
+<span class="fc" id="L79">        keyStream().forEach(k -&gt; action.accept(k, get(k)));</span>
+<span class="fc" id="L80">    }</span>
+
+    @Override
+    public synchronized Enumeration&lt;Object&gt; keys() {
+<span class="fc" id="L84">        return Collections.enumeration(keySet());</span>
+    }
+
+    @Override
+    public Set&lt;Object&gt; keySet() {
+<span class="fc" id="L89">        return new TreeSet&lt;&gt;(super.keySet());</span>
+    }
+
+    private Stream&lt;Object&gt; keyStream() {
+<span class="fc" id="L93">        return keySet().stream();</span>
+    }
+
+    @Override
+    public Enumeration&lt;?&gt; propertyNames() {
+<span class="fc" id="L98">        return Collections.enumeration(stringPropertyNames());</span>
+    }
+
+    @Override
+    public Set&lt;String&gt; stringPropertyNames() {
+<span class="fc" id="L103">        return enumerateStringProperties(new TreeSet&lt;&gt;());</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

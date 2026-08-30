@@ -1,0 +1,205 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SwitchTransformer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons Collections</a> &gt; <a href="index.source.html" class="el_package">org.apache.commons.collections4.functors</a> &gt; <span class="el_source">SwitchTransformer.java</span></div><h1>SwitchTransformer.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.commons.collections4.functors;
+
+import java.io.Serializable;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Objects;
+
+import org.apache.commons.collections4.Predicate;
+import org.apache.commons.collections4.Transformer;
+
+/**
+ * Transformer implementation calls the transformer whose predicate returns true,
+ * like a switch statement.
+ *
+ * @param &lt;T&gt; The type of the input to the function.
+ * @param &lt;R&gt; The type of the result of the function.
+ * @since 3.0
+ */
+public class SwitchTransformer&lt;T, R&gt; implements Transformer&lt;T, R&gt;, Serializable {
+
+    /** Serial version UID */
+    private static final long serialVersionUID = -6404460890903469332L;
+
+    /**
+     * Create a new Transformer that calls one of the transformers depending
+     * on the predicates.
+     * &lt;p&gt;
+     * The Map consists of Predicate keys and Transformer values. A transformer
+     * is called if its matching predicate returns true. Each predicate is evaluated
+     * until one returns true. If no predicates evaluate to true, the default
+     * transformer is called. The default transformer is set in the map with a
+     * null key. The ordering is that of the iterator() method on the entryset
+     * collection of the map.
+     * &lt;/p&gt;
+     *
+     * @param &lt;I&gt;  the input type
+     * @param &lt;O&gt;  the output type
+     * @param map  A map of predicates to transformers
+     * @return The {@code switch} transformer
+     * @throws NullPointerException if the map is null
+     * @throws NullPointerException if any transformer in the map is null
+     * @throws ClassCastException  if the map elements are of the wrong type
+     */
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public static &lt;I, O&gt; Transformer&lt;I, O&gt; switchTransformer(
+            final Map&lt;? extends Predicate&lt;? super I&gt;, ? extends Transformer&lt;? super I, ? extends O&gt;&gt; map) {
+
+<span class="fc" id="L64">        Objects.requireNonNull(map, &quot;map&quot;);</span>
+<span class="fc bfc" id="L65" title="All 2 branches covered.">        if (map.isEmpty()) {</span>
+<span class="fc" id="L66">            return ConstantTransformer.&lt;I, O&gt;nullTransformer();</span>
+        }
+        // copy so the caller's map is not mutated; LinkedHashMap preserves iterator() ordering
+<span class="fc" id="L69">        final Map&lt;Predicate&lt;? super I&gt;, Transformer&lt;? super I, ? extends O&gt;&gt; entries = new LinkedHashMap&lt;&gt;(map);</span>
+<span class="fc" id="L70">        final Transformer&lt;? super I, ? extends O&gt; defaultTransformer = entries.remove(null);</span>
+<span class="fc" id="L71">        final int size = entries.size();</span>
+<span class="fc bfc" id="L72" title="All 2 branches covered.">        if (size == 0) {</span>
+<span class="pc bpc" id="L73" title="1 of 2 branches missed.">            return (Transformer&lt;I, O&gt;) (defaultTransformer == null ? ConstantTransformer.&lt;I, O&gt;nullTransformer() :</span>
+<span class="nc" id="L74">                                                                     defaultTransformer);</span>
+        }
+<span class="fc" id="L76">        final Transformer&lt;? super I, ? extends O&gt;[] transformers = new Transformer[size];</span>
+<span class="fc" id="L77">        final Predicate&lt;? super I&gt;[] preds = new Predicate[size];</span>
+<span class="fc" id="L78">        int i = 0;</span>
+        for (final Map.Entry&lt;Predicate&lt;? super I&gt;,
+<span class="fc bfc" id="L80" title="All 2 branches covered.">                             Transformer&lt;? super I, ? extends O&gt;&gt; entry : entries.entrySet()) {</span>
+<span class="fc" id="L81">            preds[i] = entry.getKey();</span>
+<span class="fc" id="L82">            transformers[i] = entry.getValue();</span>
+<span class="fc" id="L83">            i++;</span>
+<span class="fc" id="L84">        }</span>
+<span class="fc" id="L85">        return new SwitchTransformer&lt;&gt;(false, preds, transformers, defaultTransformer);</span>
+    }
+
+    /**
+     * Factory method that performs validation and copies the parameter arrays.
+     *
+     * @param &lt;I&gt;  the input type
+     * @param &lt;O&gt;  the output type
+     * @param predicates  array of predicates, cloned, no nulls
+     * @param transformers  matching array of transformers, cloned, no nulls
+     * @param defaultTransformer  The transformer to use if no match, null means return null
+     * @return The {@code chained} transformer
+     * @throws NullPointerException if either array is null
+     * @throws NullPointerException if any element in the arrays is null
+     * @throws IllegalArgumentException if the arrays have different sizes
+     */
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public static &lt;I, O&gt; Transformer&lt;I, O&gt; switchTransformer(final Predicate&lt;? super I&gt;[] predicates,
+            final Transformer&lt;? super I, ? extends O&gt;[] transformers,
+            final Transformer&lt;? super I, ? extends O&gt; defaultTransformer) {
+<span class="fc" id="L105">        FunctorUtils.validate(predicates);</span>
+<span class="fc" id="L106">        FunctorUtils.validate(transformers);</span>
+<span class="fc bfc" id="L107" title="All 2 branches covered.">        if (predicates.length != transformers.length) {</span>
+<span class="fc" id="L108">            throw new IllegalArgumentException(&quot;The predicate and transformer arrays must be the same size&quot;);</span>
+        }
+<span class="fc bfc" id="L110" title="All 2 branches covered.">        if (predicates.length == 0) {</span>
+<span class="pc bpc" id="L111" title="1 of 2 branches missed.">            return (Transformer&lt;I, O&gt;) (defaultTransformer == null ? ConstantTransformer.&lt;I, O&gt;nullTransformer() :</span>
+<span class="nc" id="L112">                                                                     defaultTransformer);</span>
+        }
+<span class="fc" id="L114">        return new SwitchTransformer&lt;&gt;(predicates, transformers, defaultTransformer);</span>
+    }
+
+    /** The tests to consider */
+    private final Predicate&lt;? super T&gt;[] iPredicates;
+
+    /** The matching transformers to call */
+    private final Transformer&lt;? super T, ? extends R&gt;[] iTransformers;
+
+    /** The default transformer to call if no tests match */
+    private final Transformer&lt;? super T, ? extends R&gt; iDefault;
+
+    /**
+     * Hidden constructor for the use by the static factory methods.
+     *
+     * @param clone  if {@code true} the input arguments will be cloned
+     * @param predicates  array of predicates, no nulls
+     * @param transformers  matching array of transformers, no nulls
+     * @param defaultTransformer  The transformer to use if no match, null means return null
+     */
+    private SwitchTransformer(final boolean clone, final Predicate&lt;? super T&gt;[] predicates,
+                             final Transformer&lt;? super T, ? extends R&gt;[] transformers,
+<span class="fc" id="L136">                             final Transformer&lt;? super T, ? extends R&gt; defaultTransformer) {</span>
+<span class="fc bfc" id="L137" title="All 2 branches covered.">        iPredicates = clone ? FunctorUtils.copy(predicates) : predicates;</span>
+<span class="fc bfc" id="L138" title="All 2 branches covered.">        iTransformers = clone ? FunctorUtils.copy(transformers) : transformers;</span>
+<span class="fc bfc" id="L139" title="All 2 branches covered.">        iDefault = defaultTransformer == null ?</span>
+<span class="fc" id="L140">                ConstantTransformer.&lt;T, R&gt;nullTransformer() : defaultTransformer;</span>
+<span class="fc" id="L141">    }</span>
+
+    /**
+     * Constructor that performs no validation.
+     * Use {@code switchTransformer} if you want that.
+     *
+     * @param predicates  array of predicates, cloned, no nulls
+     * @param transformers  matching array of transformers, cloned, no nulls
+     * @param defaultTransformer  The transformer to use if no match, null means return null
+     */
+    public SwitchTransformer(final Predicate&lt;? super T&gt;[] predicates,
+            final Transformer&lt;? super T, ? extends R&gt;[] transformers,
+            final Transformer&lt;? super T, ? extends R&gt; defaultTransformer) {
+<span class="fc" id="L154">        this(true, predicates, transformers, defaultTransformer);</span>
+<span class="fc" id="L155">    }</span>
+
+    /**
+     * Gets the default transformer.
+     *
+     * @return The default transformer
+     * @since 3.1
+     */
+    public Transformer&lt;? super T, ? extends R&gt; getDefaultTransformer() {
+<span class="nc" id="L164">        return iDefault;</span>
+    }
+
+    /**
+     * Gets the predicates.
+     *
+     * @return A copy of the predicates
+     * @since 3.1
+     */
+    public Predicate&lt;? super T&gt;[] getPredicates() {
+<span class="nc" id="L174">        return FunctorUtils.copy(iPredicates);</span>
+    }
+
+    /**
+     * Gets the transformers.
+     *
+     * @return A copy of the transformers
+     * @since 3.1
+     */
+    public Transformer&lt;? super T, ? extends R&gt;[] getTransformers() {
+<span class="nc" id="L184">        return FunctorUtils.copy(iTransformers);</span>
+    }
+
+    /**
+     * Transforms the input to result by calling the transformer whose matching
+     * predicate returns true.
+     *
+     * @param input  The input object to transform
+     * @return The transformed result
+     */
+    @Override
+    public R transform(final T input) {
+<span class="fc bfc" id="L196" title="All 2 branches covered.">        for (int i = 0; i &lt; iPredicates.length; i++) {</span>
+<span class="fc bfc" id="L197" title="All 2 branches covered.">            if (iPredicates[i].test(input)) {</span>
+<span class="fc" id="L198">                return iTransformers[i].apply(input);</span>
+            }
+        }
+<span class="fc" id="L201">        return iDefault.apply(input);</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

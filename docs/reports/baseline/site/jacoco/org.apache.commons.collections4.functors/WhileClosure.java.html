@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>WhileClosure.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons Collections</a> &gt; <a href="index.source.html" class="el_package">org.apache.commons.collections4.functors</a> &gt; <span class="el_source">WhileClosure.java</span></div><h1>WhileClosure.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.commons.collections4.functors;
+
+import java.util.Objects;
+
+import org.apache.commons.collections4.Closure;
+import org.apache.commons.collections4.Predicate;
+
+/**
+ * Closure implementation that executes a closure repeatedly until a condition is met,
+ * like a do-while or while loop.
+ * &lt;p&gt;
+ * &lt;strong&gt;WARNING:&lt;/strong&gt; from v4.1 onwards this class will &lt;strong&gt;not&lt;/strong&gt; be serializable anymore
+ * in order to prevent potential remote code execution exploits. Please refer to
+ * &lt;a href=&quot;https://issues.apache.org/jira/browse/COLLECTIONS-580&quot;&gt;COLLECTIONS-580&lt;/a&gt;
+ * for more details.
+ * &lt;/p&gt;
+ *
+ * @param &lt;T&gt; The type of the input to the operation.
+ * @since 3.0
+ */
+public class WhileClosure&lt;T&gt; implements Closure&lt;T&gt; {
+
+    /**
+     * Factory method that performs validation.
+     *
+     * @param &lt;E&gt; The type that the closure acts on
+     * @param predicate  The predicate used to evaluate when the loop terminates, not null
+     * @param closure  The closure to execute, not null
+     * @param doLoop  true to act as a do-while loop, always executing the closure once
+     * @return The {@code while} closure
+     * @throws NullPointerException if the predicate or closure is null
+     */
+    public static &lt;E&gt; Closure&lt;E&gt; whileClosure(final Predicate&lt;? super E&gt; predicate,
+                                              final Closure&lt;? super E&gt; closure, final boolean doLoop) {
+<span class="fc" id="L51">        return new WhileClosure&lt;&gt;(Objects.requireNonNull(predicate, &quot;predicate&quot;),</span>
+<span class="fc" id="L52">                Objects.requireNonNull(closure, &quot;closure&quot;), doLoop);</span>
+    }
+
+    /** The test condition */
+    private final Predicate&lt;? super T&gt; iPredicate;
+
+    /** The closure to call */
+    private final Closure&lt;? super T&gt; iClosure;
+
+    /** The flag, true is a do loop, false is a while */
+    private final boolean iDoLoop;
+
+    /**
+     * Constructor that performs no validation.
+     * Use {@code whileClosure} if you want that.
+     *
+     * @param predicate  The predicate used to evaluate when the loop terminates, not null
+     * @param closure  The closure to execute, not null
+     * @param doLoop  true to act as a do-while loop, always executing the closure once
+     */
+<span class="fc" id="L72">    public WhileClosure(final Predicate&lt;? super T&gt; predicate, final Closure&lt;? super T&gt; closure, final boolean doLoop) {</span>
+<span class="fc" id="L73">        iPredicate = predicate;</span>
+<span class="fc" id="L74">        iClosure = closure;</span>
+<span class="fc" id="L75">        iDoLoop = doLoop;</span>
+<span class="fc" id="L76">    }</span>
+
+    /**
+     * Executes the closure until the predicate is false.
+     *
+     * @param input  The input object
+     */
+    @Override
+    public void execute(final T input) {
+<span class="fc bfc" id="L85" title="All 2 branches covered.">        if (iDoLoop) {</span>
+<span class="fc" id="L86">            iClosure.accept(input);</span>
+        }
+<span class="fc bfc" id="L88" title="All 2 branches covered.">        while (iPredicate.test(input)) {</span>
+<span class="fc" id="L89">            iClosure.accept(input);</span>
+        }
+<span class="fc" id="L91">    }</span>
+
+    /**
+     * Gets the closure.
+     *
+     * @return The closure
+     * @since 3.1
+     */
+    public Closure&lt;? super T&gt; getClosure() {
+<span class="nc" id="L100">        return iClosure;</span>
+    }
+
+    /**
+     * Gets the predicate in use.
+     *
+     * @return The predicate
+     * @since 3.1
+     */
+    public Predicate&lt;? super T&gt; getPredicate() {
+<span class="nc" id="L110">        return iPredicate;</span>
+    }
+
+    /**
+     * Is the loop a do-while loop.
+     *
+     * @return true is do-while, false if while
+     * @since 3.1
+     */
+    public boolean isDoLoop() {
+<span class="nc" id="L120">        return iDoLoop;</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

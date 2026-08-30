@@ -1,0 +1,278 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LoopingListIterator.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons Collections</a> &gt; <a href="index.source.html" class="el_package">org.apache.commons.collections4.iterators</a> &gt; <span class="el_source">LoopingListIterator.java</span></div><h1>LoopingListIterator.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.commons.collections4.iterators;
+
+import java.util.List;
+import java.util.ListIterator;
+import java.util.NoSuchElementException;
+import java.util.Objects;
+
+import org.apache.commons.collections4.ResettableListIterator;
+
+/**
+ * A ListIterator that restarts when it reaches the end or when it
+ * reaches the beginning.
+ * &lt;p&gt;
+ * The iterator will loop continuously around the provided list,
+ * unless there are no elements in the collection to begin with, or
+ * all of the elements have been {@link #remove removed}.
+ * &lt;/p&gt;
+ * &lt;p&gt;
+ * Concurrent modifications are not directly supported, and for most
+ * collection implementations will throw a
+ * ConcurrentModificationException.
+ * &lt;/p&gt;
+ *
+ * @param &lt;E&gt; The type of elements returned by this iterator.
+ * @since 3.2
+ */
+public class LoopingListIterator&lt;E&gt; implements ResettableListIterator&lt;E&gt; {
+
+    /** The list to base the iterator on */
+    private final List&lt;E&gt; list;
+
+    /** The current list iterator */
+    private ListIterator&lt;E&gt; iterator;
+
+    /**
+     * Constructor that wraps a list.
+     * &lt;p&gt;
+     * There is no way to reset a ListIterator instance without
+     * recreating it from the original source, so the List must be
+     * passed in and a reference to it held.
+     * &lt;/p&gt;
+     *
+     * @param list The list to wrap
+     * @throws NullPointerException if the list is null
+     */
+<span class="fc" id="L62">    public LoopingListIterator(final List&lt;E&gt; list) {</span>
+<span class="fc" id="L63">        this.list = Objects.requireNonNull(list, &quot;collection&quot;);</span>
+<span class="fc" id="L64">        init();</span>
+<span class="fc" id="L65">    }</span>
+
+    /**
+     * Inserts the specified element into the underlying list.
+     * &lt;p&gt;
+     * The element is inserted before the next element that would be
+     * returned by {@link #next}, if any, and after the next element
+     * that would be returned by {@link #previous}, if any.
+     * &lt;/p&gt;
+     * &lt;p&gt;
+     * This feature is only supported if the underlying list's
+     * {@link List#listIterator} method returns an implementation
+     * that supports it.
+     * &lt;/p&gt;
+     *
+     * @param obj  The element to insert
+     * @throws UnsupportedOperationException if the add method is not
+     *  supported by the iterator implementation of the underlying list
+     */
+    @Override
+    public void add(final E obj) {
+<span class="fc" id="L86">        iterator.add(obj);</span>
+<span class="fc" id="L87">    }</span>
+
+    /**
+     * Returns whether this iterator has any more elements.
+     * &lt;p&gt;
+     * Returns false only if the list originally had zero elements, or
+     * all elements have been {@link #remove removed}.
+     * &lt;/p&gt;
+     *
+     * @return {@code true} if there are more elements
+     */
+    @Override
+    public boolean hasNext() {
+<span class="fc bfc" id="L100" title="All 2 branches covered.">        return !list.isEmpty();</span>
+    }
+
+    /**
+     * Returns whether this iterator has any more previous elements.
+     * &lt;p&gt;
+     * Returns false only if the list originally had zero elements, or
+     * all elements have been {@link #remove removed}.
+     * &lt;/p&gt;
+     *
+     * @return {@code true} if there are more elements
+     */
+    @Override
+    public boolean hasPrevious() {
+<span class="fc bfc" id="L114" title="All 2 branches covered.">        return !list.isEmpty();</span>
+    }
+
+    private void init() {
+<span class="fc" id="L118">        iterator = list.listIterator();</span>
+<span class="fc" id="L119">    }</span>
+
+    /**
+     * Returns the next object in the list.
+     * &lt;p&gt;
+     * If at the end of the list, returns the first element.
+     * &lt;/p&gt;
+     *
+     * @return The object after the last element returned
+     * @throws NoSuchElementException if there are no elements in the list
+     */
+    @Override
+    public E next() {
+<span class="fc bfc" id="L132" title="All 2 branches covered.">        if (list.isEmpty()) {</span>
+<span class="fc" id="L133">            throw new NoSuchElementException(</span>
+                &quot;There are no elements for this iterator to loop on&quot;);
+        }
+<span class="fc bfc" id="L136" title="All 2 branches covered.">        if (!iterator.hasNext()) {</span>
+<span class="fc" id="L137">            reset();</span>
+        }
+<span class="fc" id="L139">        return iterator.next();</span>
+    }
+
+    /**
+     * Returns the index of the element that would be returned by a
+     * subsequent call to {@link #next}.
+     * &lt;p&gt;
+     * As would be expected, if the iterator is at the physical end of
+     * the underlying list, 0 is returned, signifying the beginning of
+     * the list.
+     * &lt;/p&gt;
+     *
+     * @return The index of the element that would be returned if next() were called
+     * @throws NoSuchElementException if there are no elements in the list
+     */
+    @Override
+    public int nextIndex() {
+<span class="pc bpc" id="L156" title="1 of 2 branches missed.">        if (list.isEmpty()) {</span>
+<span class="nc" id="L157">            throw new NoSuchElementException(</span>
+                &quot;There are no elements for this iterator to loop on&quot;);
+        }
+<span class="pc bpc" id="L160" title="1 of 2 branches missed.">        if (!iterator.hasNext()) {</span>
+<span class="nc" id="L161">            return 0;</span>
+        }
+<span class="fc" id="L163">        return iterator.nextIndex();</span>
+    }
+
+    /**
+     * Returns the previous object in the list.
+     * &lt;p&gt;
+     * If at the beginning of the list, return the last element. Note
+     * that in this case, traversal to find that element takes linear time.
+     * &lt;/p&gt;
+     *
+     * @return The object before the last element returned
+     * @throws NoSuchElementException if there are no elements in the list
+     */
+    @Override
+    public E previous() {
+<span class="fc bfc" id="L178" title="All 2 branches covered.">        if (list.isEmpty()) {</span>
+<span class="fc" id="L179">            throw new NoSuchElementException(</span>
+                &quot;There are no elements for this iterator to loop on&quot;);
+        }
+<span class="fc bfc" id="L182" title="All 2 branches covered.">        if (!iterator.hasPrevious()) {</span>
+<span class="fc" id="L183">            E result = null;</span>
+<span class="fc bfc" id="L184" title="All 2 branches covered.">            while (iterator.hasNext()) {</span>
+<span class="fc" id="L185">                result = iterator.next();</span>
+            }
+<span class="fc" id="L187">            iterator.previous();</span>
+<span class="fc" id="L188">            return result;</span>
+        }
+<span class="fc" id="L190">        return iterator.previous();</span>
+    }
+
+    /**
+     * Returns the index of the element that would be returned by a
+     * subsequent call to {@link #previous}.
+     * &lt;p&gt;
+     * As would be expected, if at the iterator is at the physical
+     * beginning of the underlying list, the list's size minus one is
+     * returned, signifying the end of the list.
+     * &lt;/p&gt;
+     *
+     * @return The index of the element that would be returned if previous() were called
+     * @throws NoSuchElementException if there are no elements in the list
+     */
+    @Override
+    public int previousIndex() {
+<span class="pc bpc" id="L207" title="1 of 2 branches missed.">        if (list.isEmpty()) {</span>
+<span class="nc" id="L208">            throw new NoSuchElementException(</span>
+                &quot;There are no elements for this iterator to loop on&quot;);
+        }
+<span class="fc bfc" id="L211" title="All 2 branches covered.">        if (!iterator.hasPrevious()) {</span>
+<span class="fc" id="L212">            return list.size() - 1;</span>
+        }
+<span class="fc" id="L214">        return iterator.previousIndex();</span>
+    }
+
+    /**
+     * Removes the previously retrieved item from the underlying list.
+     * &lt;p&gt;
+     * This feature is only supported if the underlying list's
+     * {@link List#iterator()} method returns an implementation
+     * that supports it.
+     * &lt;/p&gt;
+     * &lt;p&gt;
+     * This method can only be called after at least one {@link #next}
+     * or {@link #previous} method call. After a removal, the remove
+     * method may not be called again until another {@link #next} or
+     * {@link #previous} has been performed. If the {@link #reset} is
+     * called, then remove may not be called until {@link #next} or
+     * {@link #previous} is called again.
+     * &lt;/p&gt;
+     *
+     * @throws UnsupportedOperationException if the remove method is
+     * not supported by the iterator implementation of the underlying
+     * list
+     */
+    @Override
+    public void remove() {
+<span class="fc" id="L239">        iterator.remove();</span>
+<span class="fc" id="L240">    }</span>
+
+    /**
+     * Resets the iterator back to the start of the list.
+     */
+    @Override
+    public void reset() {
+<span class="fc" id="L247">        init();</span>
+<span class="fc" id="L248">    }</span>
+
+    /**
+     * Replaces the last element that was returned by {@link #next} or
+     * {@link #previous}.
+     * &lt;p&gt;
+     * This feature is only supported if the underlying list's
+     * {@link List#listIterator} method returns an implementation
+     * that supports it.
+     * &lt;/p&gt;
+     *
+     * @param obj  The element with which to replace the last element returned
+     * @throws UnsupportedOperationException if the set method is not
+     *  supported by the iterator implementation of the underlying list
+     */
+    @Override
+    public void set(final E obj) {
+<span class="fc" id="L265">        iterator.set(obj);</span>
+<span class="fc" id="L266">    }</span>
+
+    /**
+     * Gets the size of the list underlying the iterator.
+     *
+     * @return The current list size
+     */
+    public int size() {
+<span class="nc" id="L274">        return list.size();</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

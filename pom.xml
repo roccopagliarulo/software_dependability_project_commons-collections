@@ -252,6 +252,8 @@
             <inputExclude>.asf.yaml</inputExclude>
             <inputExclude>site-content/**/*</inputExclude>
             <inputExclude>src/test/resources/org/apache/commons/collections4/data/test/*</inputExclude>
+            <inputExclude>tools/**</inputExclude>
+            <inputExclude>docs/reports/**</inputExclude>
           </inputExcludes>
         </configuration>
       </plugin>
@@ -345,6 +347,7 @@
             <inputExclude>.asf.yaml</inputExclude>
             <inputExclude>site-content/**/*</inputExclude>
             <inputExclude>src/test/resources/org/apache/commons/collections4/data/test/*</inputExclude>
+            <inputExclude>tools/**</inputExclude>
           </inputExcludes>
         </configuration>
       </plugin>

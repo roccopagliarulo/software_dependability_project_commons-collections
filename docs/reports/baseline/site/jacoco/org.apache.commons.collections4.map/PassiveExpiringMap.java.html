@@ -1,0 +1,955 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PassiveExpiringMap.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons Collections</a> &gt; <a href="index.source.html" class="el_package">org.apache.commons.collections4.map</a> &gt; <span class="el_source">PassiveExpiringMap.java</span></div><h1>PassiveExpiringMap.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.commons.collections4.map;
+
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
+
+import org.apache.commons.collections4.collection.AbstractCollectionDecorator;
+import org.apache.commons.collections4.iterators.AbstractIteratorDecorator;
+import org.apache.commons.collections4.set.AbstractSetDecorator;
+
+/**
+ * Decorates a {@code Map} to evict expired entries once their expiration
+ * time has been reached.
+ * &lt;p&gt;
+ * When putting a key-value pair in the map this decorator uses a
+ * {@link ExpirationPolicy} to determine how long the entry should remain alive
+ * as defined by an expiration time value.
+ * &lt;/p&gt;
+ * &lt;p&gt;
+ * When accessing the mapped value for a key, its expiration time is checked,
+ * and if it is a negative value or if it is greater than the current time, the
+ * mapped value is returned. Otherwise, the key is removed from the decorated
+ * map, and {@code null} is returned.
+ * &lt;/p&gt;
+ * &lt;p&gt;
+ * When invoking methods that involve accessing the entire map contents (i.e
+ * {@link #containsValue(Object)}, {@link #entrySet()}, etc.) this decorator
+ * removes all expired entries prior to actually completing the invocation.
+ * &lt;/p&gt;
+ * &lt;p&gt;
+ * &lt;strong&gt;Note that {@link PassiveExpiringMap} is not synchronized and is not
+ * thread-safe.&lt;/strong&gt; If you wish to use this map from multiple threads
+ * concurrently, you must use appropriate synchronization. The simplest approach
+ * is to wrap this map using {@link java.util.Collections#synchronizedMap(Map)}.
+ * This class may throw exceptions when accessed by concurrent threads without
+ * synchronization.
+ * &lt;/p&gt;
+ *
+ * @param &lt;K&gt; The type of the keys in this map
+ * @param &lt;V&gt; The type of the values in this map
+ * @since 4.0
+ */
+public class PassiveExpiringMap&lt;K, V&gt;
+    extends AbstractMapDecorator&lt;K, V&gt;
+    implements Serializable {
+
+    /**
+     * A {@link ExpirationPolicy ExpirationPolicy}
+     * that returns an expiration time that is a
+     * constant about of time in the future from the current time.
+     *
+     * @param &lt;K&gt; The type of the keys in the map
+     * @param &lt;V&gt; The type of the values in the map
+     * @since 4.0
+     */
+    public static class ConstantTimeToLiveExpirationPolicy&lt;K, V&gt;
+        implements ExpirationPolicy&lt;K, V&gt; {
+
+        /** Serialization version */
+        private static final long serialVersionUID = 1L;
+
+        /** The constant time-to-live value measured in milliseconds. */
+        private final long timeToLiveMillis;
+
+        /**
+         * Default constructor. Constructs a policy using a negative
+         * time-to-live value that results in entries never expiring.
+         */
+        public ConstantTimeToLiveExpirationPolicy() {
+<span class="nc" id="L95">            this(-1L);</span>
+<span class="nc" id="L96">        }</span>
+
+        /**
+         * Constructs a policy with the given time-to-live constant measured in
+         * milliseconds. A negative time-to-live value indicates entries never
+         * expire. A zero time-to-live value indicates entries expire (nearly)
+         * immediately.
+         *
+         * @param timeToLiveMillis The constant amount of time (in milliseconds)
+         *        an entry is available before it expires. A negative value
+         *        results in entries that NEVER expire. A zero value results in
+         *        entries that ALWAYS expire.
+         */
+<span class="fc" id="L109">        public ConstantTimeToLiveExpirationPolicy(final long timeToLiveMillis) {</span>
+<span class="fc" id="L110">            this.timeToLiveMillis = timeToLiveMillis;</span>
+<span class="fc" id="L111">        }</span>
+
+        /**
+         * Constructs a policy with the given time-to-live constant measured in
+         * the given time unit of measure.
+         *
+         * @param timeToLive The constant amount of time an entry is available
+         *        before it expires. A negative value results in entries that
+         *        NEVER expire. A zero value results in entries that ALWAYS
+         *        expire.
+         * @param timeUnit The unit of time for the {@code timeToLive}
+         *        parameter, must not be null.
+         * @throws NullPointerException if the time unit is null.
+         */
+        public ConstantTimeToLiveExpirationPolicy(final long timeToLive,
+                                                  final TimeUnit timeUnit) {
+<span class="fc" id="L127">            this(validateAndConvertToMillis(timeToLive, timeUnit));</span>
+<span class="fc" id="L128">        }</span>
+
+        /**
+         * Determine the expiration time for the given key-value entry.
+         *
+         * @param key The key for the entry (ignored).
+         * @param value The value for the entry (ignored).
+         * @return if {@link #timeToLiveMillis} &amp;ge; 0, an expiration time of
+         *         {@link #timeToLiveMillis} +
+         *         {@link System#currentTimeMillis()} is returned. Otherwise, -1
+         *         is returned indicating the entry never expires.
+         */
+        @Override
+        public long expirationTime(final K key, final V value) {
+<span class="fc bfc" id="L142" title="All 2 branches covered.">            if (timeToLiveMillis &gt;= 0L) {</span>
+                // avoid numerical overflow
+<span class="fc" id="L144">                final long nowMillis = System.currentTimeMillis();</span>
+<span class="pc bpc" id="L145" title="1 of 2 branches missed.">                if (nowMillis &gt; Long.MAX_VALUE - timeToLiveMillis) {</span>
+                    // expiration would be greater than Long.MAX_VALUE
+                    // never expire
+<span class="nc" id="L148">                    return -1;</span>
+                }
+
+                // timeToLiveMillis in the future
+<span class="fc" id="L152">                return nowMillis + timeToLiveMillis;</span>
+            }
+
+            // never expire
+<span class="fc" id="L156">            return -1L;</span>
+        }
+    }
+
+    private final class EntrySet extends AbstractSetDecorator&lt;Entry&lt;K, V&gt;&gt; {
+
+        /** Generated serial version ID. */
+        private static final long serialVersionUID = 1L;
+
+<span class="fc" id="L165">        private EntrySet(final Set&lt;Entry&lt;K, V&gt;&gt; set) {</span>
+<span class="fc" id="L166">            super(set);</span>
+<span class="fc" id="L167">        }</span>
+
+        @Override
+        public void clear() {
+<span class="fc" id="L171">            PassiveExpiringMap.this.clear();</span>
+<span class="fc" id="L172">        }</span>
+
+        @Override
+        public boolean contains(final Object object) {
+<span class="fc" id="L176">            PassiveExpiringMap.this.removeAllExpired(PassiveExpiringMap.this.now());</span>
+<span class="fc" id="L177">            return super.contains(object);</span>
+        }
+
+        @Override
+        public boolean containsAll(final Collection&lt;?&gt; coll) {
+<span class="fc" id="L182">            PassiveExpiringMap.this.removeAllExpired(PassiveExpiringMap.this.now());</span>
+<span class="fc" id="L183">            return super.containsAll(coll);</span>
+        }
+
+        @Override
+        public boolean isEmpty() {
+<span class="fc" id="L188">            PassiveExpiringMap.this.removeAllExpired(PassiveExpiringMap.this.now());</span>
+<span class="fc" id="L189">            return super.isEmpty();</span>
+        }
+
+        @Override
+        public Iterator&lt;Entry&lt;K, V&gt;&gt; iterator() {
+<span class="fc" id="L194">            PassiveExpiringMap.this.removeAllExpired(PassiveExpiringMap.this.now());</span>
+<span class="fc" id="L195">            return new EntrySetIterator(super.iterator());</span>
+        }
+
+        @Override
+        public boolean remove(final Object object) {
+<span class="fc bfc" id="L200" title="All 2 branches covered.">            if (object instanceof Map.Entry) {</span>
+<span class="fc" id="L201">                final Map.Entry&lt;?, ?&gt; entry = (Map.Entry&lt;?, ?&gt;) object;</span>
+<span class="fc" id="L202">                final Object key = entry.getKey();</span>
+<span class="fc bfc" id="L203" title="All 2 branches covered.">                if (PassiveExpiringMap.this.containsKey(key)) {</span>
+<span class="fc" id="L204">                    final Object value = PassiveExpiringMap.this.get(key);</span>
+<span class="fc bfc" id="L205" title="All 2 branches covered.">                    if (Objects.equals(value, entry.getValue())) {</span>
+<span class="fc" id="L206">                        PassiveExpiringMap.this.remove(key);</span>
+<span class="fc" id="L207">                        return true;</span>
+                    }
+                }
+            }
+<span class="fc" id="L211">            return false;</span>
+        }
+
+        @Override
+        public boolean removeAll(final Collection&lt;?&gt; coll) {
+<span class="fc" id="L216">            Objects.requireNonNull(coll, &quot;coll&quot;);</span>
+<span class="fc" id="L217">            boolean changed = false;</span>
+<span class="fc bfc" id="L218" title="All 2 branches covered.">            if (size() &gt; coll.size()) {</span>
+<span class="fc bfc" id="L219" title="All 2 branches covered.">                for (final Object obj : coll) {</span>
+<span class="fc" id="L220">                    changed |= remove(obj);</span>
+<span class="fc" id="L221">                }</span>
+            } else {
+<span class="fc" id="L223">                final Iterator&lt;?&gt; it = iterator();</span>
+<span class="fc bfc" id="L224" title="All 2 branches covered.">                while (it.hasNext()) {</span>
+<span class="pc bpc" id="L225" title="1 of 2 branches missed.">                    if (coll.contains(it.next())) {</span>
+<span class="fc" id="L226">                        it.remove();</span>
+<span class="fc" id="L227">                        changed = true;</span>
+                    }
+                }
+            }
+<span class="fc" id="L231">            return changed;</span>
+        }
+
+        @Override
+        public boolean removeIf(final Predicate&lt;? super Entry&lt;K, V&gt;&gt; filter) {
+<span class="fc" id="L236">            Objects.requireNonNull(filter, &quot;filter&quot;);</span>
+<span class="fc" id="L237">            boolean changed = false;</span>
+<span class="fc" id="L238">            final Iterator&lt;Entry&lt;K, V&gt;&gt; it = iterator();</span>
+<span class="fc bfc" id="L239" title="All 2 branches covered.">            while (it.hasNext()) {</span>
+<span class="fc bfc" id="L240" title="All 2 branches covered.">                if (filter.test(it.next())) {</span>
+<span class="fc" id="L241">                    it.remove();</span>
+<span class="fc" id="L242">                    changed = true;</span>
+                }
+            }
+<span class="fc" id="L245">            return changed;</span>
+        }
+
+        @Override
+        public boolean retainAll(final Collection&lt;?&gt; coll) {
+<span class="fc" id="L250">            Objects.requireNonNull(coll, &quot;coll&quot;);</span>
+<span class="fc" id="L251">            boolean changed = false;</span>
+<span class="fc" id="L252">            final Iterator&lt;?&gt; it = iterator();</span>
+<span class="fc bfc" id="L253" title="All 2 branches covered.">            while (it.hasNext()) {</span>
+<span class="fc bfc" id="L254" title="All 2 branches covered.">                if (!coll.contains(it.next())) {</span>
+<span class="fc" id="L255">                    it.remove();</span>
+<span class="fc" id="L256">                    changed = true;</span>
+                }
+            }
+<span class="fc" id="L259">            return changed;</span>
+        }
+
+        @Override
+        public int size() {
+<span class="fc" id="L264">            PassiveExpiringMap.this.removeAllExpired(PassiveExpiringMap.this.now());</span>
+<span class="fc" id="L265">            return super.size();</span>
+        }
+
+        @Override
+        public Object[] toArray() {
+<span class="fc" id="L270">            PassiveExpiringMap.this.removeAllExpired(PassiveExpiringMap.this.now());</span>
+<span class="fc" id="L271">            return super.toArray();</span>
+        }
+
+        @Override
+        public &lt;T&gt; T[] toArray(final T[] array) {
+<span class="fc" id="L276">            PassiveExpiringMap.this.removeAllExpired(PassiveExpiringMap.this.now());</span>
+<span class="fc" id="L277">            return super.toArray(array);</span>
+        }
+    }
+
+    private final class EntrySetIterator extends AbstractIteratorDecorator&lt;Entry&lt;K, V&gt;&gt; {
+        private Entry&lt;K, V&gt; lastReturned;
+
+<span class="fc" id="L284">        private EntrySetIterator(final Iterator&lt;Entry&lt;K, V&gt;&gt; iterator) {</span>
+<span class="fc" id="L285">            super(iterator);</span>
+<span class="fc" id="L286">        }</span>
+
+        @Override
+        public Entry&lt;K, V&gt; next() {
+<span class="fc" id="L290">            lastReturned = super.next();</span>
+<span class="fc" id="L291">            return lastReturned;</span>
+        }
+
+        @Override
+        public void remove() {
+<span class="fc" id="L296">            super.remove();</span>
+<span class="pc bpc" id="L297" title="1 of 2 branches missed.">            if (lastReturned != null) {</span>
+<span class="fc" id="L298">                PassiveExpiringMap.this.expirationMap.remove(lastReturned.getKey());</span>
+<span class="fc" id="L299">                lastReturned = null;</span>
+            }
+<span class="fc" id="L301">        }</span>
+    }
+
+    /**
+     * A policy to determine the expiration time for key-value entries.
+     *
+     * @param &lt;K&gt; The key object type.
+     * @param &lt;V&gt; The value object type
+     * @since 4.0
+     */
+    @FunctionalInterface
+    public interface ExpirationPolicy&lt;K, V&gt;
+        extends Serializable {
+
+        /**
+         * Determine the expiration time for the given key-value entry.
+         *
+         * @param key The key for the entry.
+         * @param value The value for the entry.
+         * @return The expiration time value measured in milliseconds. A
+         *         negative return value indicates the entry never expires.
+         */
+        long expirationTime(K key, V value);
+    }
+
+    private final class KeySet extends AbstractSetDecorator&lt;K&gt; {
+
+        /** Generated serial version ID. */
+        private static final long serialVersionUID = 1L;
+
+<span class="fc" id="L331">        private KeySet(final Set&lt;K&gt; set) {</span>
+<span class="fc" id="L332">            super(set);</span>
+<span class="fc" id="L333">        }</span>
+
+        @Override
+        public void clear() {
+<span class="fc" id="L337">            PassiveExpiringMap.this.clear();</span>
+<span class="fc" id="L338">        }</span>
+
+        @Override
+        public boolean contains(final Object key) {
+<span class="fc" id="L342">            PassiveExpiringMap.this.removeIfExpired(key, PassiveExpiringMap.this.now());</span>
+<span class="fc" id="L343">            return super.contains(key);</span>
+        }
+
+        @Override
+        public boolean containsAll(final Collection&lt;?&gt; coll) {
+<span class="fc" id="L348">            PassiveExpiringMap.this.removeAllExpired(PassiveExpiringMap.this.now());</span>
+<span class="fc" id="L349">            return super.containsAll(coll);</span>
+        }
+
+        @Override
+        public boolean isEmpty() {
+<span class="fc" id="L354">            PassiveExpiringMap.this.removeAllExpired(PassiveExpiringMap.this.now());</span>
+<span class="fc" id="L355">            return super.isEmpty();</span>
+        }
+
+        @Override
+        public Iterator&lt;K&gt; iterator() {
+<span class="fc" id="L360">            return new KeySetIterator(PassiveExpiringMap.this.entrySet().iterator());</span>
+        }
+
+        @Override
+        public boolean remove(final Object key) {
+<span class="fc" id="L365">            final boolean hasKey = contains(key);</span>
+<span class="fc bfc" id="L366" title="All 2 branches covered.">            if (hasKey) {</span>
+<span class="fc" id="L367">                PassiveExpiringMap.this.remove(key);</span>
+            }
+<span class="fc" id="L369">            return hasKey;</span>
+        }
+
+        @Override
+        public boolean removeAll(final Collection&lt;?&gt; coll) {
+<span class="fc" id="L374">            Objects.requireNonNull(coll, &quot;coll&quot;);</span>
+<span class="fc" id="L375">            boolean changed = false;</span>
+<span class="fc bfc" id="L376" title="All 2 branches covered.">            if (size() &gt; coll.size()) {</span>
+<span class="fc bfc" id="L377" title="All 2 branches covered.">                for (final Object obj : coll) {</span>
+<span class="fc" id="L378">                    changed |= remove(obj);</span>
+<span class="fc" id="L379">                }</span>
+            } else {
+<span class="fc" id="L381">                final Iterator&lt;?&gt; it = iterator();</span>
+<span class="fc bfc" id="L382" title="All 2 branches covered.">                while (it.hasNext()) {</span>
+<span class="pc bpc" id="L383" title="1 of 2 branches missed.">                    if (coll.contains(it.next())) {</span>
+<span class="fc" id="L384">                        it.remove();</span>
+<span class="fc" id="L385">                        changed = true;</span>
+                    }
+                }
+            }
+<span class="fc" id="L389">            return changed;</span>
+        }
+
+        @Override
+        public boolean removeIf(final Predicate&lt;? super K&gt; filter) {
+<span class="fc" id="L394">            Objects.requireNonNull(filter, &quot;filter&quot;);</span>
+<span class="fc" id="L395">            boolean changed = false;</span>
+<span class="fc" id="L396">            final Iterator&lt;K&gt; it = iterator();</span>
+<span class="fc bfc" id="L397" title="All 2 branches covered.">            while (it.hasNext()) {</span>
+<span class="fc bfc" id="L398" title="All 2 branches covered.">                if (filter.test(it.next())) {</span>
+<span class="fc" id="L399">                    it.remove();</span>
+<span class="fc" id="L400">                    changed = true;</span>
+                }
+            }
+<span class="fc" id="L403">            return changed;</span>
+        }
+
+        @Override
+        public boolean retainAll(final Collection&lt;?&gt; coll) {
+<span class="fc" id="L408">            Objects.requireNonNull(coll, &quot;coll&quot;);</span>
+<span class="fc" id="L409">            boolean changed = false;</span>
+<span class="fc" id="L410">            final Iterator&lt;?&gt; it = iterator();</span>
+<span class="fc bfc" id="L411" title="All 2 branches covered.">            while (it.hasNext()) {</span>
+<span class="fc bfc" id="L412" title="All 2 branches covered.">                if (!coll.contains(it.next())) {</span>
+<span class="fc" id="L413">                    it.remove();</span>
+<span class="fc" id="L414">                    changed = true;</span>
+                }
+            }
+<span class="fc" id="L417">            return changed;</span>
+        }
+
+        @Override
+        public int size() {
+<span class="fc" id="L422">            PassiveExpiringMap.this.removeAllExpired(PassiveExpiringMap.this.now());</span>
+<span class="fc" id="L423">            return super.size();</span>
+        }
+
+        @Override
+        public Object[] toArray() {
+<span class="fc" id="L428">            PassiveExpiringMap.this.removeAllExpired(PassiveExpiringMap.this.now());</span>
+<span class="fc" id="L429">            return super.toArray();</span>
+        }
+
+        @Override
+        public &lt;T&gt; T[] toArray(final T[] array) {
+<span class="fc" id="L434">            PassiveExpiringMap.this.removeAllExpired(PassiveExpiringMap.this.now());</span>
+<span class="fc" id="L435">            return super.toArray(array);</span>
+        }
+    }
+
+    private final class KeySetIterator implements Iterator&lt;K&gt; {
+        private final Iterator&lt;Entry&lt;K, V&gt;&gt; iterator;
+
+<span class="fc" id="L442">        private KeySetIterator(final Iterator&lt;Entry&lt;K, V&gt;&gt; iterator) {</span>
+<span class="fc" id="L443">            this.iterator = iterator;</span>
+<span class="fc" id="L444">        }</span>
+
+        @Override
+        public boolean hasNext() {
+<span class="fc" id="L448">            return iterator.hasNext();</span>
+        }
+
+        @Override
+        public K next() {
+<span class="fc" id="L453">            return iterator.next().getKey();</span>
+        }
+
+        @Override
+        public void remove() {
+<span class="fc" id="L458">            iterator.remove();</span>
+<span class="fc" id="L459">        }</span>
+    }
+
+    private final class ValuesCollection extends AbstractCollectionDecorator&lt;V&gt; {
+
+        /** Generated serial version ID. */
+        private static final long serialVersionUID = 1L;
+
+<span class="fc" id="L467">        private ValuesCollection(final Collection&lt;V&gt; coll) {</span>
+<span class="fc" id="L468">            super(coll);</span>
+<span class="fc" id="L469">        }</span>
+
+        @Override
+        public void clear() {
+<span class="fc" id="L473">            PassiveExpiringMap.this.clear();</span>
+<span class="fc" id="L474">        }</span>
+
+        @Override
+        public boolean contains(final Object value) {
+<span class="fc" id="L478">            PassiveExpiringMap.this.removeAllExpired(PassiveExpiringMap.this.now());</span>
+<span class="fc" id="L479">            return super.contains(value);</span>
+        }
+
+        @Override
+        public boolean containsAll(final Collection&lt;?&gt; coll) {
+<span class="fc" id="L484">            PassiveExpiringMap.this.removeAllExpired(PassiveExpiringMap.this.now());</span>
+<span class="fc" id="L485">            return super.containsAll(coll);</span>
+        }
+
+        @Override
+        public boolean isEmpty() {
+<span class="fc" id="L490">            PassiveExpiringMap.this.removeAllExpired(PassiveExpiringMap.this.now());</span>
+<span class="fc" id="L491">            return super.isEmpty();</span>
+        }
+
+        @Override
+        public Iterator&lt;V&gt; iterator() {
+<span class="fc" id="L496">            return new ValuesIterator(PassiveExpiringMap.this.entrySet().iterator());</span>
+        }
+
+        @Override
+        public boolean remove(final Object value) {
+<span class="fc" id="L501">            final Iterator&lt;V&gt; it = iterator();</span>
+<span class="fc bfc" id="L502" title="All 2 branches covered.">            while (it.hasNext()) {</span>
+<span class="fc bfc" id="L503" title="All 2 branches covered.">                if (Objects.equals(it.next(), value)) {</span>
+<span class="fc" id="L504">                    it.remove();</span>
+<span class="fc" id="L505">                    return true;</span>
+                }
+            }
+<span class="fc" id="L508">            return false;</span>
+        }
+
+        @Override
+        public boolean removeAll(final Collection&lt;?&gt; coll) {
+<span class="fc" id="L513">            Objects.requireNonNull(coll, &quot;coll&quot;);</span>
+<span class="fc" id="L514">            boolean changed = false;</span>
+<span class="fc" id="L515">            final Iterator&lt;?&gt; it = iterator();</span>
+<span class="fc bfc" id="L516" title="All 2 branches covered.">            while (it.hasNext()) {</span>
+<span class="fc bfc" id="L517" title="All 2 branches covered.">                if (coll.contains(it.next())) {</span>
+<span class="fc" id="L518">                    it.remove();</span>
+<span class="fc" id="L519">                    changed = true;</span>
+                }
+            }
+<span class="fc" id="L522">            return changed;</span>
+        }
+
+        @Override
+        public boolean removeIf(final Predicate&lt;? super V&gt; filter) {
+<span class="fc" id="L527">            Objects.requireNonNull(filter, &quot;filter&quot;);</span>
+<span class="fc" id="L528">            boolean changed = false;</span>
+<span class="fc" id="L529">            final Iterator&lt;V&gt; it = iterator();</span>
+<span class="fc bfc" id="L530" title="All 2 branches covered.">            while (it.hasNext()) {</span>
+<span class="fc bfc" id="L531" title="All 2 branches covered.">                if (filter.test(it.next())) {</span>
+<span class="fc" id="L532">                    it.remove();</span>
+<span class="fc" id="L533">                    changed = true;</span>
+                }
+            }
+<span class="fc" id="L536">            return changed;</span>
+        }
+
+        @Override
+        public boolean retainAll(final Collection&lt;?&gt; coll) {
+<span class="fc" id="L541">            Objects.requireNonNull(coll, &quot;coll&quot;);</span>
+<span class="fc" id="L542">            boolean changed = false;</span>
+<span class="fc" id="L543">            final Iterator&lt;?&gt; it = iterator();</span>
+<span class="fc bfc" id="L544" title="All 2 branches covered.">            while (it.hasNext()) {</span>
+<span class="fc bfc" id="L545" title="All 2 branches covered.">                if (!coll.contains(it.next())) {</span>
+<span class="fc" id="L546">                    it.remove();</span>
+<span class="fc" id="L547">                    changed = true;</span>
+                }
+            }
+<span class="fc" id="L550">            return changed;</span>
+        }
+
+        @Override
+        public int size() {
+<span class="fc" id="L555">            PassiveExpiringMap.this.removeAllExpired(PassiveExpiringMap.this.now());</span>
+<span class="fc" id="L556">            return super.size();</span>
+        }
+
+        @Override
+        public Object[] toArray() {
+<span class="fc" id="L561">            PassiveExpiringMap.this.removeAllExpired(PassiveExpiringMap.this.now());</span>
+<span class="fc" id="L562">            return super.toArray();</span>
+        }
+
+        @Override
+        public &lt;T&gt; T[] toArray(final T[] array) {
+<span class="fc" id="L567">            PassiveExpiringMap.this.removeAllExpired(PassiveExpiringMap.this.now());</span>
+<span class="fc" id="L568">            return super.toArray(array);</span>
+        }
+    }
+
+    private final class ValuesIterator implements Iterator&lt;V&gt; {
+        private final Iterator&lt;Entry&lt;K, V&gt;&gt; iterator;
+
+<span class="fc" id="L575">        private ValuesIterator(final Iterator&lt;Entry&lt;K, V&gt;&gt; iterator) {</span>
+<span class="fc" id="L576">            this.iterator = iterator;</span>
+<span class="fc" id="L577">        }</span>
+
+        @Override
+        public boolean hasNext() {
+<span class="fc" id="L581">            return iterator.hasNext();</span>
+        }
+
+        @Override
+        public V next() {
+<span class="fc" id="L586">            return iterator.next().getValue();</span>
+        }
+
+        @Override
+        public void remove() {
+<span class="fc" id="L591">            iterator.remove();</span>
+<span class="fc" id="L592">        }</span>
+    }
+
+    /** Serialization version */
+    private static final long serialVersionUID = 1L;
+
+    /**
+     * First validate the input parameters. If the parameters are valid, convert
+     * the given time measured in the given units to the same time measured in
+     * milliseconds.
+     *
+     * @param timeToLive The constant amount of time an entry is available
+     *        before it expires. A negative value results in entries that NEVER
+     *        expire. A zero value results in entries that ALWAYS expire.
+     * @param timeUnit The unit of time for the {@code timeToLive}
+     *        parameter, must not be null.
+     * @throws NullPointerException if the time unit is null.
+     */
+    private static long validateAndConvertToMillis(final long timeToLive,
+                                                   final TimeUnit timeUnit) {
+<span class="fc" id="L612">        Objects.requireNonNull(timeUnit, &quot;timeUnit&quot;);</span>
+<span class="fc" id="L613">        return TimeUnit.MILLISECONDS.convert(timeToLive, timeUnit);</span>
+    }
+
+    /** Map used to manage expiration times for the actual map entries. */
+<span class="fc" id="L617">    private final Map&lt;Object, Long&gt; expirationMap = new HashMap&lt;&gt;();</span>
+
+    /** The policy used to determine time-to-live values for map entries. */
+    private final ExpirationPolicy&lt;K, V&gt; expiringPolicy;
+
+    /**
+     * Default constructor. Constructs a map decorator that results in entries
+     * NEVER expiring.
+     */
+    public PassiveExpiringMap() {
+<span class="fc" id="L627">        this(-1L);</span>
+<span class="fc" id="L628">    }</span>
+
+    /**
+     * Constructs a map decorator using the given expiration policy to determine
+     * expiration times.
+     *
+     * @param expiringPolicy The policy used to determine expiration times of
+     *        entries as they are added.
+     * @throws NullPointerException if expiringPolicy is null
+     */
+    public PassiveExpiringMap(final ExpirationPolicy&lt;K, V&gt; expiringPolicy) {
+<span class="fc" id="L639">        this(expiringPolicy, new HashMap&lt;&gt;());</span>
+<span class="fc" id="L640">    }</span>
+
+    /**
+     * Constructs a map decorator that decorates the given map and uses the given
+     * expiration policy to determine expiration times. If there are any
+     * elements already in the map being decorated, they will NEVER expire
+     * unless they are replaced.
+     *
+     * @param expiringPolicy The policy used to determine expiration times of
+     *        entries as they are added.
+     * @param map The map to decorate, must not be null.
+     * @throws NullPointerException if the map or expiringPolicy is null.
+     */
+    public PassiveExpiringMap(final ExpirationPolicy&lt;K, V&gt; expiringPolicy,
+                              final Map&lt;K, V&gt; map) {
+<span class="fc" id="L655">        super(map);</span>
+<span class="fc" id="L656">        this.expiringPolicy = Objects.requireNonNull(expiringPolicy, &quot;expiringPolicy&quot;);</span>
+<span class="fc" id="L657">    }</span>
+
+    /**
+     * Constructs a map decorator that decorates the given map using the given
+     * time-to-live value measured in milliseconds to create and use a
+     * {@link ConstantTimeToLiveExpirationPolicy} expiration policy.
+     *
+     * @param timeToLiveMillis The constant amount of time (in milliseconds) an
+     *        entry is available before it expires. A negative value results in
+     *        entries that NEVER expire. A zero value results in entries that
+     *        ALWAYS expire.
+     */
+    public PassiveExpiringMap(final long timeToLiveMillis) {
+<span class="fc" id="L670">        this(new ConstantTimeToLiveExpirationPolicy&lt;&gt;(timeToLiveMillis),</span>
+                new HashMap&lt;&gt;());
+<span class="fc" id="L672">    }</span>
+
+    /**
+     * Constructs a map decorator using the given time-to-live value measured in
+     * milliseconds to create and use a
+     * {@link ConstantTimeToLiveExpirationPolicy} expiration policy. If there
+     * are any elements already in the map being decorated, they will NEVER
+     * expire unless they are replaced.
+     *
+     * @param timeToLiveMillis The constant amount of time (in milliseconds) an
+     *        entry is available before it expires. A negative value results in
+     *        entries that NEVER expire. A zero value results in entries that
+     *        ALWAYS expire.
+     * @param map The map to decorate, must not be null.
+     * @throws NullPointerException if the map is null.
+     */
+    public PassiveExpiringMap(final long timeToLiveMillis, final Map&lt;K, V&gt; map) {
+<span class="nc" id="L689">        this(new ConstantTimeToLiveExpirationPolicy&lt;&gt;(timeToLiveMillis),</span>
+             map);
+<span class="nc" id="L691">    }</span>
+
+    /**
+     * Constructs a map decorator using the given time-to-live value measured in
+     * the given time units of measure to create and use a
+     * {@link ConstantTimeToLiveExpirationPolicy} expiration policy.
+     *
+     * @param timeToLive The constant amount of time an entry is available
+     *        before it expires. A negative value results in entries that NEVER
+     *        expire. A zero value results in entries that ALWAYS expire.
+     * @param timeUnit The unit of time for the {@code timeToLive}
+     *        parameter, must not be null.
+     * @throws NullPointerException if the time unit is null.
+     */
+    public PassiveExpiringMap(final long timeToLive, final TimeUnit timeUnit) {
+<span class="nc" id="L706">        this(validateAndConvertToMillis(timeToLive, timeUnit));</span>
+<span class="nc" id="L707">    }</span>
+
+    /**
+     * Constructs a map decorator that decorates the given map using the given
+     * time-to-live value measured in the given time units of measure to create
+     * {@link ConstantTimeToLiveExpirationPolicy} expiration policy. This policy
+     * is used to determine expiration times. If there are any elements already
+     * in the map being decorated, they will NEVER expire unless they are
+     * replaced.
+     *
+     * @param timeToLive The constant amount of time an entry is available
+     *        before it expires. A negative value results in entries that NEVER
+     *        expire. A zero value results in entries that ALWAYS expire.
+     * @param timeUnit The unit of time for the {@code timeToLive}
+     *        parameter, must not be null.
+     * @param map The map to decorate, must not be null.
+     * @throws NullPointerException if the map or time unit is null.
+     */
+    public PassiveExpiringMap(final long timeToLive, final TimeUnit timeUnit, final Map&lt;K, V&gt; map) {
+<span class="nc" id="L726">        this(validateAndConvertToMillis(timeToLive, timeUnit), map);</span>
+<span class="nc" id="L727">    }</span>
+
+    /**
+     * Constructs a map decorator that decorates the given map and results in
+     * entries NEVER expiring. If there are any elements already in the map
+     * being decorated, they also will NEVER expire.
+     *
+     * @param map The map to decorate, must not be null.
+     * @throws NullPointerException if the map is null.
+     */
+    public PassiveExpiringMap(final Map&lt;K, V&gt; map) {
+<span class="nc" id="L738">        this(-1L, map);</span>
+<span class="nc" id="L739">    }</span>
+
+    /**
+     * Normal {@link Map#clear()} behavior with the addition of clearing all
+     * expiration entries as well.
+     */
+    @Override
+    public void clear() {
+<span class="fc" id="L747">        super.clear();</span>
+<span class="fc" id="L748">        expirationMap.clear();</span>
+<span class="fc" id="L749">    }</span>
+
+    /**
+     * All expired entries are removed from the map prior to determining the
+     * contains result.
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean containsKey(final Object key) {
+<span class="fc" id="L758">        removeIfExpired(key, now());</span>
+<span class="fc" id="L759">        return super.containsKey(key);</span>
+    }
+
+    /**
+     * All expired entries are removed from the map prior to determining the
+     * contains result.
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean containsValue(final Object value) {
+<span class="fc" id="L769">        removeAllExpired(now());</span>
+<span class="fc" id="L770">        return super.containsValue(value);</span>
+    }
+
+    /**
+     * All expired entries are removed from the map prior to returning the entry set.
+     * {@inheritDoc}
+     */
+    @Override
+    public Set&lt;Entry&lt;K, V&gt;&gt; entrySet() {
+<span class="fc" id="L779">        removeAllExpired(now());</span>
+<span class="fc" id="L780">        return new EntrySet(super.entrySet());</span>
+    }
+
+    /**
+     * All expired entries are removed from the map prior to returning the entry value.
+     * {@inheritDoc}
+     */
+    @Override
+    public V get(final Object key) {
+<span class="fc" id="L789">        removeIfExpired(key, now());</span>
+<span class="fc" id="L790">        return super.get(key);</span>
+    }
+
+    /**
+     * All expired entries are removed from the map prior to determining if it is empty.
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean isEmpty() {
+<span class="fc" id="L799">        removeAllExpired(now());</span>
+<span class="fc" id="L800">        return super.isEmpty();</span>
+    }
+
+    /**
+     * Determines if the given expiration time is less than {@code now}.
+     *
+     * @param now The time in milliseconds used to compare against the
+     *        expiration time.
+     * @param expirationTimeObject The expiration time value retrieved from
+     *        {@link #expirationMap}, can be null.
+     * @return {@code true} if {@code expirationTimeObject} is &amp;ge; 0
+     *         and {@code expirationTimeObject} &amp;lt; {@code now}.
+     *         {@code false} otherwise.
+     */
+    private boolean isExpired(final long now, final Long expirationTimeObject) {
+<span class="fc bfc" id="L815" title="All 2 branches covered.">        if (expirationTimeObject != null) {</span>
+<span class="fc" id="L816">            final long expirationTime = expirationTimeObject.longValue();</span>
+<span class="fc bfc" id="L817" title="All 4 branches covered.">            return expirationTime &gt;= 0 &amp;&amp; now &gt;= expirationTime;</span>
+        }
+<span class="fc" id="L819">        return false;</span>
+    }
+
+    /**
+     * All expired entries are removed from the map prior to returning the key set.
+     * {@inheritDoc}
+     */
+    @Override
+    public Set&lt;K&gt; keySet() {
+<span class="fc" id="L828">        removeAllExpired(now());</span>
+<span class="fc" id="L829">        return new KeySet(super.keySet());</span>
+    }
+
+    /**
+     * The current time in milliseconds.
+     */
+    private long now() {
+<span class="fc" id="L836">        return System.currentTimeMillis();</span>
+    }
+
+    /**
+     * {@inheritDoc}
+     * &lt;p&gt;
+     * Add the given key-value pair to this map as well as recording the entry's expiration time based on the current time in milliseconds and this map's
+     * {@link #expiringPolicy}.
+     * &lt;/p&gt;
+     */
+    @Override
+    public V put(final K key, final V value) {
+        // remove the previous record
+<span class="fc" id="L849">        removeIfExpired(key, now());</span>
+
+        // record expiration time of new entry
+<span class="fc" id="L852">        final long expirationTime = expiringPolicy.expirationTime(key, value);</span>
+<span class="fc" id="L853">        expirationMap.put(key, Long.valueOf(expirationTime));</span>
+
+<span class="fc" id="L855">        return super.put(key, value);</span>
+    }
+
+    @Override
+    public void putAll(final Map&lt;? extends K, ? extends V&gt; mapToCopy) {
+<span class="fc bfc" id="L860" title="All 2 branches covered.">        for (final Map.Entry&lt;? extends K, ? extends V&gt; entry : mapToCopy.entrySet()) {</span>
+<span class="fc" id="L861">            put(entry.getKey(), entry.getValue());</span>
+<span class="fc" id="L862">        }</span>
+<span class="fc" id="L863">    }</span>
+
+    /**
+     * Deserializes the map in using a custom routine.
+     *
+     * @param in The input stream
+     * @throws IOException Thrown if an error occurs while reading from the stream
+     * @throws ClassNotFoundException if an object read from the stream cannot be loaded
+     */
+    @SuppressWarnings(&quot;unchecked&quot;)
+    // (1) should only fail if input stream is incorrect
+    private void readObject(final ObjectInputStream in)
+        throws IOException, ClassNotFoundException {
+<span class="fc" id="L876">        in.defaultReadObject();</span>
+<span class="fc" id="L877">        map = (Map&lt;K, V&gt;) in.readObject(); // (1)</span>
+<span class="fc" id="L878">    }</span>
+
+    /**
+     * Normal {@link Map#remove(Object)} behavior with the addition of removing
+     * any expiration entry as well.
+     * {@inheritDoc}
+     */
+    @Override
+    public V remove(final Object key) {
+<span class="fc" id="L887">        expirationMap.remove(key);</span>
+<span class="fc" id="L888">        return super.remove(key);</span>
+    }
+
+    /**
+     * Removes all entries in the map whose expiration time is less than
+     * {@code now}. The exceptions are entries with negative expiration
+     * times; those entries are never removed.
+     *
+     * @see #isExpired(long, Long)
+     */
+    private void removeAllExpired(final long nowMillis) {
+<span class="fc" id="L899">        final Iterator&lt;Map.Entry&lt;Object, Long&gt;&gt; iter = expirationMap.entrySet().iterator();</span>
+<span class="fc bfc" id="L900" title="All 2 branches covered.">        while (iter.hasNext()) {</span>
+<span class="fc" id="L901">            final Map.Entry&lt;Object, Long&gt; expirationEntry = iter.next();</span>
+<span class="fc bfc" id="L902" title="All 2 branches covered.">            if (isExpired(nowMillis, expirationEntry.getValue())) {</span>
+                // remove entry from collection
+<span class="fc" id="L904">                super.remove(expirationEntry.getKey());</span>
+                // remove entry from expiration map
+<span class="fc" id="L906">                iter.remove();</span>
+            }
+<span class="fc" id="L908">        }</span>
+<span class="fc" id="L909">    }</span>
+
+    /**
+     * Removes the entry with the given key if the entry's expiration time is
+     * less than {@code now}. If the entry has a negative expiration time,
+     * the entry is never removed.
+     */
+    private void removeIfExpired(final Object key, final long nowMillis) {
+<span class="fc" id="L917">        final Long expirationTimeObject = expirationMap.get(key);</span>
+<span class="fc bfc" id="L918" title="All 2 branches covered.">        if (isExpired(nowMillis, expirationTimeObject)) {</span>
+<span class="fc" id="L919">            remove(key);</span>
+        }
+<span class="fc" id="L921">    }</span>
+
+    /**
+     * All expired entries are removed from the map prior to returning the size.
+     * {@inheritDoc}
+     */
+    @Override
+    public int size() {
+<span class="fc" id="L929">        removeAllExpired(now());</span>
+<span class="fc" id="L930">        return super.size();</span>
+    }
+
+    /**
+     * All expired entries are removed from the map prior to returning the value collection.
+     * {@inheritDoc}
+     */
+    @Override
+    public Collection&lt;V&gt; values() {
+<span class="fc" id="L939">        removeAllExpired(now());</span>
+<span class="fc" id="L940">        return new ValuesCollection(super.values());</span>
+    }
+
+    /**
+     * Serializes this object to an ObjectOutputStream.
+     *
+     * @param out The target ObjectOutputStream.
+     * @throws IOException thrown when an I/O errors occur writing to the target stream.
+     */
+    private void writeObject(final ObjectOutputStream out)
+        throws IOException {
+<span class="fc" id="L951">        out.defaultWriteObject();</span>
+<span class="fc" id="L952">        out.writeObject(map);</span>
+<span class="fc" id="L953">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>
