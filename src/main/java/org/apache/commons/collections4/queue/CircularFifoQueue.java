@@ -60,6 +60,7 @@ public class CircularFifoQueue<E> extends AbstractCollection<E>
       @ public invariant start >= 0 && start < maxElements;
       @ public invariant end >= 0 && end < maxElements;
       @ public invariant maxElements <= Integer.MAX_VALUE / 2;
+      @ public invariant full ==> start == end;
       @*/
 
     /** Serialization version. */
@@ -86,22 +87,19 @@ public class CircularFifoQueue<E> extends AbstractCollection<E>
     /** Capacity of the queue. */
     private final /*@ spec_public @*/ int maxElements;
 
-    // /*@ represents values \such_that
-    // // @   values.length == (full ? maxElements
-    // // @                           : (end >= start ? end - start : maxElements - start + end)) &&
-    // // @   (\forall int i; 0 <= i && i < values.length;
-    // // @        values[i] == elements[(start + i) % maxElements]);
-    // // @*/
-    // NOTE: an abstract model field 'values' (a logical sequence view of the
-    // queue, defined via a 'represents \such_that' clause quantifying over
-    // elements[(start + i) % maxElements]) was attempted here but is not
-    // supported by OpenJML's BasicBlocker2 backend: it cannot translate an
-    // array access on a generic array E[] with a non-constant, quantifier-
-    // dependent index inside a 'represents' clause. This is a documented
-    // limitation of the tool, not a defect in the specification. As a
-    // workaround, every method below is specified directly in terms of the
-    // concrete fields (elements, start, end, full, maxElements) instead of
-    // through this abstract model.
+    // NOTE: perché non c'è un represents per 'values'
+    //
+    // Le spec di OpenJML per Collection/Queue usano un campo astratto 'values'
+    // per descrivere il contenuto in modo logico. Avevo provato a collegarlo
+    // al buffer circolare con una clausola represents (elements[(start+i) % maxElements]),
+    // ma OpenJML va in crash: non riesce a gestire un array generico indicizzato
+    // con una variabile quantificata (vedi docs/openjml-findings.md, sezione 1.2).
+    //
+    // Quindi invece di modellare 'values', ho disattivato i contratti ereditati
+    // che lo usano e ho scritto le specifiche direttamente sui campi concreti
+    // (elements, start, end, full, maxElements). La disattivazione è fatta con
+    // un piccolo overlay in jml/specs-overrides (11 righe), non tocca il resto.
+    // Per riprodurre: ./verify_jml.sh
 
     /**
      * Constructor that creates a queue with the default size of 32.

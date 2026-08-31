@@ -58,16 +58,48 @@ echo -e "${GREEN}✓ Benchmark JMH completati. Risultati JSON in target/jmh-resu
 # STEP 2: Analisi Formale JML con OpenJML ESC
 # ------------------------------------------------------------------------------
 echo -e "${YELLOW}[STEP 4/6] Verifica Extended Static Checking (ESC) con OpenJML su CircularFifoQueue...${NC}"
-if command -v openjml &> /dev/null; then
-    for method in decrement increment size clear element isEmpty isFull maxSize peek poll remove; do
-        echo -e "  -> Verifica metodo: ${BLUE}$method${NC}"
-        openjml -esc -sourcepath src/main/java -cp src/main/java -method "$method" \
-            src/main/java/org/apache/commons/collections4/BoundedCollection.java \
-            src/main/java/org/apache/commons/collections4/queue/CircularFifoQueue.java || true
-    done
-    echo -e "${GREEN}✓ Analisi OpenJML ESC completata.${NC}\n"
+
+ROOT="$(cd "$(dirname "$0")" && pwd)"
+OPENJML_HOME="$ROOT/tools/openjml-macos-arm64-21.0.27"
+OPENJML="$OPENJML_HOME/openjml"
+OVERRIDES="$ROOT/jml/specs-overrides"
+BUNDLED="$OPENJML_HOME/specs"
+
+JML_METHODS="decrement,increment,size,clear,element,isEmpty,isFull,maxSize,peek,poll,remove"
+JML_SOURCES=(
+  "$ROOT/src/main/java/org/apache/commons/collections4/BoundedCollection.java"
+  "$ROOT/src/main/java/org/apache/commons/collections4/queue/CircularFifoQueue.java"
+)
+
+if [ -x "$OPENJML" ]; then
+    set +e
+    JML_OUT="$("$OPENJML" --esc \
+      --specs-path="$OVERRIDES:$BUNDLED" \
+      --progress \
+      -sourcepath "$ROOT/src/main/java" \
+      -cp "$ROOT/src/main/java" \
+      --method "$JML_METHODS" \
+      "${JML_SOURCES[@]}" 2>&1)"
+
+    echo "$JML_OUT" | grep -E "^Completed proof of .*CircularFifoQueue\.[a-z]" \
+                | sed -E -e 's/ with prover .* - / => /' -e 's|org.apache.commons.collections4.queue.||'
+
+    JML_PROVED=$(echo "$JML_OUT" | grep -cE "^Completed proof of .*CircularFifoQueue\.[a-z].*no warnings")
+    JML_FAILED=$(echo "$JML_OUT" | grep -cE "verify:.*(cannot establish|Invariant)")
+    JML_ERRORS=$(echo "$JML_OUT" | grep -cE "^.*: error:")
+    set -e
+
+    echo
+    echo "proved: $JML_PROVED/11   verification failures: $JML_FAILED   errors: $JML_ERRORS"
+
+    if [ "$JML_PROVED" -eq 11 ] && [ "$JML_FAILED" -eq 0 ] && [ "$JML_ERRORS" -eq 0 ]; then
+        echo -e "${GREEN}✓ Analisi OpenJML ESC completata: 11/11 metodi verificati.${NC}\n"
+    else
+        echo "$JML_OUT" | grep -E "verify:|error:" | head -40
+        echo -e "${RED}[ATTENZIONE] Verifica OpenJML ESC fallita: non tutti i metodi sono stati provati.${NC}\n"
+    fi
 else
-    echo -e "${RED}[ATTENZIONE] 'openjml' non trovato nel PATH di sistema. Verifica manuale consigliata se installato in cartella locale.${NC}\n"
+    echo -e "${RED}[ATTENZIONE] OpenJML non trovato in $OPENJML. Verifica manuale consigliata se installato altrove.${NC}\n"
 fi
 
 # ------------------------------------------------------------------------------

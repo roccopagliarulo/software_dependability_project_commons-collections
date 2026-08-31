@@ -253,6 +253,8 @@
             <inputExclude>site-content/**/*</inputExclude>
             <inputExclude>src/test/resources/org/apache/commons/collections4/data/test/*</inputExclude>
             <inputExclude>tools/**</inputExclude>
+            <!-- Derived from OpenJML's bundled JDK specs (GPL); see jml/specs-overrides headers. -->
+            <inputExclude>jml/specs-overrides/**</inputExclude>
             <inputExclude>docs/reports/**</inputExclude>
           </inputExcludes>
         </configuration>
@@ -348,6 +350,8 @@
             <inputExclude>site-content/**/*</inputExclude>
             <inputExclude>src/test/resources/org/apache/commons/collections4/data/test/*</inputExclude>
             <inputExclude>tools/**</inputExclude>
+            <!-- Derived from OpenJML's bundled JDK specs (GPL); see jml/specs-overrides headers. -->
+            <inputExclude>jml/specs-overrides/**</inputExclude>
           </inputExcludes>
         </configuration>
       </plugin>
