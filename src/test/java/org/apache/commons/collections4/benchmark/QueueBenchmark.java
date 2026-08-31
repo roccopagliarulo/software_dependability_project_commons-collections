@@ -64,6 +64,7 @@ public class QueueBenchmark {
 
     @Benchmark
     public void testCircularFifoQueueAdd() {
+        circularFifoQueue.clear();
         for (int i = 0; i < CAPACITY; i++) {
             circularFifoQueue.offer(i);
         }
@@ -71,6 +72,7 @@ public class QueueBenchmark {
 
     @Benchmark
     public void testStandardArrayDequeAdd() {
+        standardQueue.clear();
         for (int i = 0; i < CAPACITY; i++) {
             standardQueue.offer(i);
         }
