@@ -1,0 +1,389 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CollatingIterator.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons Collections</a> &gt; <a href="index.source.html" class="el_package">org.apache.commons.collections4.iterators</a> &gt; <span class="el_source">CollatingIterator.java</span></div><h1>CollatingIterator.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.commons.collections4.iterators;
+
+import java.util.ArrayList;
+import java.util.BitSet;
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.Iterator;
+import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.Objects;
+
+import org.apache.commons.collections4.comparators.ComparableComparator;
+import org.apache.commons.collections4.list.UnmodifiableList;
+
+/**
+ * Provides an ordered iteration over the elements contained in a collection of
+ * ordered Iterators.
+ * &lt;p&gt;
+ * Given two ordered {@link Iterator} instances {@code A} and
+ * {@code B}, the {@link #next} method on this iterator will return the
+ * lesser of {@code A.next()} and {@code B.next()}.
+ * &lt;/p&gt;
+ *
+ * @param &lt;E&gt; The type of elements returned by this iterator.
+ * @since 2.1
+ */
+public class CollatingIterator&lt;E&gt; implements Iterator&lt;E&gt; {
+
+    /** The {@link Comparator} used to evaluate order. */
+    private Comparator&lt;? super E&gt; comparator;
+
+    /** The list of {@link Iterator}s to evaluate. */
+    private final List&lt;Iterator&lt;? extends E&gt;&gt; iterators;
+
+    /** {@link Iterator#next Next} objects peeked from each iterator. */
+    private List&lt;E&gt; values;
+
+    /** Whether or not each {@link #values} element has been set. */
+    private BitSet valueSet;
+
+    /**
+     * Index of the {@link #iterators iterator} from whom the last returned
+     * value was obtained.
+     */
+<span class="fc" id="L61">    private int lastReturned = -1;</span>
+
+    /**
+     * Constructs a new {@code CollatingIterator}. A comparator must be
+     * set by calling {@link #setComparator(Comparator)} before invoking
+     * {@link #hasNext()}, or {@link #next()} for the first time. Child
+     * iterators will have to be manually added using the
+     * {@link #addIterator(Iterator)} method.
+     */
+    public CollatingIterator() {
+<span class="fc" id="L71">        this(null, 2);</span>
+<span class="fc" id="L72">    }</span>
+
+    /**
+     * Constructs a new {@code CollatingIterator} that will use the
+     * specified comparator for ordering. Child iterators will have to be
+     * manually added using the {@link #addIterator(Iterator)} method.
+     *
+     * @param comp The comparator to use to sort; must not be null,
+     *   unless you'll be invoking {@link #setComparator(Comparator)} later on.
+     */
+    public CollatingIterator(final Comparator&lt;? super E&gt; comp) {
+<span class="fc" id="L83">        this(comp, 2);</span>
+<span class="fc" id="L84">    }</span>
+
+    /**
+     * Constructs a new {@code CollatingIterator} that will use the
+     * specified comparator to provide ordered iteration over the collection of
+     * iterators.
+     *
+     * @param comp The comparator to use to sort; must not be null,
+     *   unless you'll be invoking {@link #setComparator(Comparator)} later on.
+     * @param iterators The collection of iterators
+     * @throws NullPointerException if the iterators collection is or contains null
+     * @throws ClassCastException if the iterators collection contains an
+     *   element that's not an {@link Iterator}
+     */
+    public CollatingIterator(final Comparator&lt;? super E&gt; comp, final Collection&lt;Iterator&lt;? extends E&gt;&gt; iterators) {
+<span class="fc" id="L99">        this(comp, iterators.size());</span>
+<span class="fc bfc" id="L100" title="All 2 branches covered.">        for (final Iterator&lt;? extends E&gt; iterator : iterators) {</span>
+<span class="fc" id="L101">            addIterator(iterator);</span>
+<span class="fc" id="L102">        }</span>
+<span class="fc" id="L103">    }</span>
+
+    /**
+     * Constructs a new {@code CollatingIterator} that will use the
+     * specified comparator for ordering and have the specified initial
+     * capacity. Child iterators will have to be manually added using the
+     * {@link #addIterator(Iterator)} method.
+     *
+     * @param comp The comparator to use to sort; must not be null,
+     *   unless you'll be invoking {@link #setComparator(Comparator)} later on.
+     * @param initIterCapacity The initial capacity for the internal list of
+     *   child iterators
+     */
+<span class="fc" id="L116">    public CollatingIterator(final Comparator&lt;? super E&gt; comp, final int initIterCapacity) {</span>
+<span class="fc" id="L117">        iterators = new ArrayList&lt;&gt;(initIterCapacity);</span>
+<span class="fc" id="L118">        setComparator(comp);</span>
+<span class="fc" id="L119">    }</span>
+
+    /**
+     * Constructs a new {@code CollatingIterator} that will use the
+     * specified comparator to provide ordered iteration over the two given
+     * iterators.
+     *
+     * @param comp The comparator to use to sort; must not be null,
+     *   unless you'll be invoking {@link #setComparator(Comparator)} later on.
+     * @param a The first child ordered iterator
+     * @param b The second child ordered iterator
+     * @throws NullPointerException if either iterator is null
+     */
+    public CollatingIterator(final Comparator&lt;? super E&gt; comp, final Iterator&lt;? extends E&gt; a,
+                             final Iterator&lt;? extends E&gt; b) {
+<span class="fc" id="L134">        this(comp, 2);</span>
+<span class="fc" id="L135">        addIterator(a);</span>
+<span class="fc" id="L136">        addIterator(b);</span>
+<span class="fc" id="L137">    }</span>
+
+    /**
+     * Constructs a new {@code CollatingIterator} that will use the
+     * specified comparator to provide ordered iteration over the array of
+     * iterators.
+     *
+     * @param comp The comparator to use to sort; must not be null,
+     *   unless you'll be invoking {@link #setComparator(Comparator)} later on.
+     * @param iterators The array of iterators
+     * @throws NullPointerException if iterators array is or contains null
+     */
+    public CollatingIterator(final Comparator&lt;? super E&gt; comp, final Iterator&lt;? extends E&gt;[] iterators) {
+<span class="fc" id="L150">        this(comp, iterators.length);</span>
+<span class="fc bfc" id="L151" title="All 2 branches covered.">        for (final Iterator&lt;? extends E&gt; iterator : iterators) {</span>
+<span class="fc" id="L152">            addIterator(iterator);</span>
+        }
+<span class="fc" id="L154">    }</span>
+
+    /**
+     * Adds the given {@link Iterator} to the iterators being collated.
+     *
+     * @param iterator The iterator to add to the collation, must not be null
+     * @throws IllegalStateException if iteration has started
+     * @throws NullPointerException if the iterator is null
+     */
+    public void addIterator(final Iterator&lt;? extends E&gt; iterator) {
+<span class="fc" id="L164">        checkNotStarted();</span>
+<span class="fc" id="L165">        Objects.requireNonNull(iterator, &quot;iterator&quot;);</span>
+<span class="fc" id="L166">        iterators.add(iterator);</span>
+<span class="fc" id="L167">    }</span>
+
+    /**
+     * Returns {@code true} iff any {@link Iterator} in the given list has
+     * a next value.
+     */
+    private boolean anyHasNext(final List&lt;Iterator&lt;? extends E&gt;&gt; iterators) {
+<span class="fc bfc" id="L174" title="All 2 branches covered.">        for (final Iterator&lt;? extends E&gt; iterator : iterators) {</span>
+<span class="fc bfc" id="L175" title="All 2 branches covered.">            if (iterator.hasNext()) {</span>
+<span class="fc" id="L176">                return true;</span>
+            }
+<span class="fc" id="L178">        }</span>
+<span class="fc" id="L179">        return false;</span>
+    }
+
+    /**
+     * Returns {@code true} iff any bit in the given set is
+     * {@code true}.
+     */
+    private boolean anyValueSet(final BitSet set) {
+<span class="fc bfc" id="L187" title="All 2 branches covered.">        for (int i = 0; i &lt; set.size(); i++) {</span>
+<span class="fc bfc" id="L188" title="All 2 branches covered.">            if (set.get(i)) {</span>
+<span class="fc" id="L189">                return true;</span>
+            }
+        }
+<span class="fc" id="L192">        return false;</span>
+    }
+
+    /**
+     * Throws {@link IllegalStateException} if iteration has started via
+     * {@link #start}.
+     *
+     * @throws IllegalStateException if iteration started
+     */
+    private void checkNotStarted() throws IllegalStateException {
+<span class="pc bpc" id="L202" title="1 of 2 branches missed.">        if (values != null) {</span>
+<span class="nc" id="L203">            throw new IllegalStateException(&quot;Can't do that after next or hasNext has been called.&quot;);</span>
+        }
+<span class="fc" id="L205">    }</span>
+
+    /**
+     * Clears the {@link #values} and {@link #valueSet} attributes at position
+     * &lt;em&gt;i&lt;/em&gt;.
+     */
+    private void clear(final int i) {
+<span class="fc" id="L212">        values.set(i, null);</span>
+<span class="fc" id="L213">        valueSet.clear(i);</span>
+<span class="fc" id="L214">    }</span>
+
+    /**
+     * Gets the {@link Comparator} by which collation occurs.
+     *
+     * @return The {@link Comparator}
+     */
+    public Comparator&lt;? super E&gt; getComparator() {
+<span class="fc" id="L222">        return comparator;</span>
+    }
+
+    /**
+     * Gets the index of the iterator that returned the last element.
+     *
+     * @return The index of the iterator that returned the last element
+     * @throws IllegalStateException if there is no last returned element
+     */
+    public int getIteratorIndex() {
+<span class="pc bpc" id="L232" title="1 of 2 branches missed.">        if (lastReturned == -1) {</span>
+<span class="nc" id="L233">            throw new IllegalStateException(&quot;No value has been returned yet&quot;);</span>
+        }
+
+<span class="fc" id="L236">        return lastReturned;</span>
+    }
+
+    /**
+     * Gets the list of Iterators (unmodifiable).
+     *
+     * @return The unmodifiable list of iterators added
+     */
+    public List&lt;Iterator&lt;? extends E&gt;&gt; getIterators() {
+<span class="nc" id="L245">        return UnmodifiableList.unmodifiableList(iterators);</span>
+    }
+
+    /**
+     * Returns {@code true} if any child iterator has remaining elements.
+     *
+     * @return true if this iterator has remaining elements
+     */
+    @Override
+    public boolean hasNext() {
+<span class="fc" id="L255">        start();</span>
+<span class="fc bfc" id="L256" title="All 4 branches covered.">        return anyValueSet(valueSet) || anyHasNext(iterators);</span>
+    }
+
+    /**
+     * Returns the index of the least element in {@link #values},
+     * {@link #set(int) setting} any uninitialized values.
+     *
+     * @throws NullPointerException if no comparator is set
+     */
+    private int least() {
+<span class="fc" id="L266">        int leastIndex = -1;</span>
+<span class="fc" id="L267">        E leastObject = null;</span>
+<span class="fc bfc" id="L268" title="All 2 branches covered.">        for (int i = 0; i &lt; values.size(); i++) {</span>
+<span class="fc bfc" id="L269" title="All 2 branches covered.">            if (!valueSet.get(i)) {</span>
+<span class="fc" id="L270">                set(i);</span>
+            }
+<span class="fc bfc" id="L272" title="All 2 branches covered.">            if (valueSet.get(i)) {</span>
+<span class="fc bfc" id="L273" title="All 2 branches covered.">                if (leastIndex == -1) {</span>
+<span class="fc" id="L274">                    leastIndex = i;</span>
+<span class="fc" id="L275">                    leastObject = values.get(i);</span>
+                } else {
+<span class="fc" id="L277">                    final E curObject = values.get(i);</span>
+<span class="fc" id="L278">                    Objects.requireNonNull(comparator, &quot;You must invoke setComparator() to set a comparator first.&quot;);</span>
+<span class="fc bfc" id="L279" title="All 2 branches covered.">                    if (comparator.compare(curObject, leastObject) &lt; 0) {</span>
+<span class="fc" id="L280">                        leastObject = curObject;</span>
+<span class="fc" id="L281">                        leastIndex = i;</span>
+                    }
+                }
+            }
+        }
+<span class="fc" id="L286">        return leastIndex;</span>
+    }
+
+    /**
+     * Returns the next ordered element from a child iterator.
+     *
+     * @return The next ordered element
+     * @throws NoSuchElementException if no child iterator has any more elements
+     */
+    @Override
+    public E next() throws NoSuchElementException {
+<span class="fc bfc" id="L297" title="All 2 branches covered.">        if (!hasNext()) {</span>
+<span class="fc" id="L298">            throw new NoSuchElementException();</span>
+        }
+<span class="fc" id="L300">        final int leastIndex = least();</span>
+<span class="pc bpc" id="L301" title="1 of 2 branches missed.">        if (leastIndex == -1) {</span>
+<span class="nc" id="L302">            throw new NoSuchElementException();</span>
+        }
+<span class="fc" id="L304">        final E val = values.get(leastIndex);</span>
+<span class="fc" id="L305">        clear(leastIndex);</span>
+<span class="fc" id="L306">        lastReturned = leastIndex;</span>
+<span class="fc" id="L307">        return val;</span>
+    }
+
+    /**
+     * Removes the last returned element from the child iterator that produced it.
+     *
+     * @throws IllegalStateException if there is no last returned element, or if
+     * the last returned element has already been removed
+     */
+    @Override
+    public void remove() {
+<span class="fc bfc" id="L318" title="All 2 branches covered.">        if (lastReturned == -1) {</span>
+<span class="fc" id="L319">            throw new IllegalStateException(&quot;No value can be removed at present&quot;);</span>
+        }
+<span class="fc" id="L321">        iterators.get(lastReturned).remove();</span>
+<span class="fc" id="L322">    }</span>
+
+    /**
+     * Sets the {@link #values} and {@link #valueSet} attributes at position
+     * &lt;em&gt;i&lt;/em&gt; to the next value of the {@link #iterators iterator} at position
+     * &lt;em&gt;i&lt;/em&gt;, or clear them if the &lt;em&gt;i&lt;/em&gt;&lt;sup&gt;th&lt;/sup&gt; iterator has no next
+     * value.
+     *
+     * @return {@code false} iff there was no value to set
+     */
+    private boolean set(final int index) {
+<span class="fc" id="L333">        final Iterator&lt;? extends E&gt; it = iterators.get(index);</span>
+<span class="fc bfc" id="L334" title="All 2 branches covered.">        if (it.hasNext()) {</span>
+<span class="fc" id="L335">            values.set(index, it.next());</span>
+<span class="fc" id="L336">            valueSet.set(index);</span>
+<span class="fc" id="L337">            return true;</span>
+        }
+<span class="fc" id="L339">        values.set(index, null);</span>
+<span class="fc" id="L340">        valueSet.clear(index);</span>
+<span class="fc" id="L341">        return false;</span>
+    }
+
+    /**
+     * Sets the {@link Comparator} by which collation occurs. If you
+     * would like to use the natural sort order (or, in other words,
+     * if the elements in the iterators are implementing the
+     * {@link Comparable} interface), then use the
+     * {@link ComparableComparator}.
+     *
+     * @param comp The {@link Comparator} to set
+     * @throws IllegalStateException if iteration has started
+     */
+    public void setComparator(final Comparator&lt;? super E&gt; comp) {
+<span class="fc" id="L355">        checkNotStarted();</span>
+<span class="fc" id="L356">        comparator = comp;</span>
+<span class="fc" id="L357">    }</span>
+
+    /**
+     * Sets the iterator at the given index.
+     *
+     * @param index index of the Iterator to replace
+     * @param iterator Iterator to place at the given index
+     * @throws IndexOutOfBoundsException if index &amp;lt; 0 or index &amp;gt;= size()
+     * @throws IllegalStateException if iteration has started
+     * @throws NullPointerException if the iterator is null
+     */
+    public void setIterator(final int index, final Iterator&lt;? extends E&gt; iterator) {
+<span class="nc" id="L369">        checkNotStarted();</span>
+<span class="nc" id="L370">        Objects.requireNonNull(iterator, &quot;iterator&quot;);</span>
+<span class="nc" id="L371">        iterators.set(index, iterator);</span>
+<span class="nc" id="L372">    }</span>
+
+    /**
+     * Initializes the collating state if it hasn't been already.
+     */
+    private void start() {
+<span class="fc bfc" id="L378" title="All 2 branches covered.">        if (values == null) {</span>
+<span class="fc" id="L379">            values = new ArrayList&lt;&gt;(iterators.size());</span>
+<span class="fc" id="L380">            valueSet = new BitSet(iterators.size());</span>
+<span class="fc bfc" id="L381" title="All 2 branches covered.">            for (int i = 0; i &lt; iterators.size(); i++) {</span>
+<span class="fc" id="L382">                values.add(null);</span>
+<span class="fc" id="L383">                valueSet.clear(i);</span>
+            }
+        }
+<span class="fc" id="L386">    }</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

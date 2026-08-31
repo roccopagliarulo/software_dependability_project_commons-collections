@@ -17,7 +17,9 @@
 package org.apache.commons.collections4.bag;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.InvalidObjectException;
 
@@ -43,6 +45,192 @@ public class HashBagTest<T> extends AbstractBagTest<T> {
     @Override
     public Bag<T> makeObject() {
         return new HashBag<>();
+    }
+
+    @Test
+    void testAddReturnsTrueForNewElementAndIncrementsByOne() {
+        final HashBag<String> bag = new HashBag<>();
+        final int before = bag.getCount("A");
+
+        assertTrue(bag.add("A"));
+        assertEquals(before + 1, bag.getCount("A"));
+    }
+
+    @Test
+    void testAddReturnsFalseForExistingElementAndIncrementsByOne() {
+        final HashBag<String> bag = new HashBag<>();
+        bag.add("A");
+        final int before = bag.getCount("A");
+
+        assertFalse(bag.add("A"));
+        assertEquals(before + 1, bag.getCount("A"));
+    }
+
+    @Test
+    void testAddAllReturnsTrueWhenBagChanges() {
+        final HashBag<String> bag = new HashBag<>();
+        bag.add("A");
+
+        final boolean changed = bag.addAll(java.util.Arrays.asList("B", "C", "A"));
+
+        assertTrue(changed);
+        assertEquals(2, bag.getCount("A"));
+        assertEquals(1, bag.getCount("B"));
+        assertEquals(1, bag.getCount("C"));
+    }
+
+    @Test
+    void testAddAllReturnsFalseForEmptyOrDuplicateOnlyCollection() {
+        final HashBag<String> bag = new HashBag<>();
+        bag.add("A");
+
+        assertFalse(bag.addAll(java.util.Collections.emptyList()));
+        assertFalse(bag.addAll(java.util.Arrays.asList("A", "A")));
+        assertEquals(3, bag.getCount("A"));
+    }
+
+    @Test
+    void testRemoveDecrementsCountByOneWhenGreaterThanOne() {
+        final HashBag<String> bag = new HashBag<>();
+        bag.add("A");
+        bag.add("A");
+
+        assertTrue(bag.remove("A", 1));
+        assertEquals(1, bag.getCount("A"));
+        assertTrue(bag.contains("A"));
+    }
+
+    @Test
+    void testRemoveRemovesElementWhenCountReachesZero() {
+        final HashBag<String> bag = new HashBag<>();
+        bag.add("A");
+
+        assertTrue(bag.remove("A", 1));
+        assertEquals(0, bag.getCount("A"));
+        assertFalse(bag.contains("A"));
+        assertFalse(bag.uniqueSet().contains("A"));
+    }
+
+    @Test
+    void testRemoveReturnsFalseForAbsentElement() {
+        final HashBag<String> bag = new HashBag<>();
+        bag.add("A");
+
+        assertFalse(bag.remove("B", 1));
+        assertEquals(1, bag.getCount("A"));
+    }
+
+    @Test
+    void testRemoveAllReturnsTrueWhenElementsAreRemoved() {
+        final HashBag<String> bag = new HashBag<>();
+        bag.add("A");
+        bag.add("A");
+        bag.add("B");
+        bag.add("C");
+
+        final boolean changed = bag.removeAll(java.util.Arrays.asList("A", "A", "B", "C"));
+
+        assertTrue(changed);
+        assertEquals(0, bag.getCount("A"));
+        assertEquals(0, bag.getCount("B"));
+        assertEquals(0, bag.getCount("C"));
+    }
+
+    @Test
+    void testRemoveAllReturnsFalseWhenCollectionHasNoIntersection() {
+        final HashBag<String> bag = new HashBag<>();
+        bag.add("A");
+        bag.add("B");
+
+        final boolean changed = bag.removeAll(java.util.Arrays.asList("C", "D"));
+
+        assertFalse(changed);
+        assertEquals(1, bag.getCount("A"));
+        assertEquals(1, bag.getCount("B"));
+    }
+
+    @Test
+    void testRetainAllWithExactSubsetRemovesOnlyExcessElements() {
+        final HashBag<String> bag = new HashBag<>();
+        bag.add("A");
+        bag.add("A");
+        bag.add("B");
+        bag.add("C");
+
+        final boolean changed = bag.retainAll(java.util.Arrays.asList("A", "B"));
+
+        assertTrue(changed);
+        assertEquals(1, bag.getCount("A"));
+        assertEquals(1, bag.getCount("B"));
+        assertEquals(0, bag.getCount("C"));
+        assertEquals(2, bag.size());
+    }
+
+    @Test
+    void testRetainAllWithDisjointCollectionClearsBag() {
+        final HashBag<String> bag = new HashBag<>();
+        bag.add("A");
+        bag.add("B");
+
+        final boolean changed = bag.retainAll(java.util.Arrays.asList("C", "D"));
+
+        assertTrue(changed);
+        assertEquals(0, bag.size());
+        assertEquals(0, bag.getCount("A"));
+        assertEquals(0, bag.getCount("B"));
+    }
+
+    @Test
+    void testRetainAllWithFullBagCollectionReturnsFalse() {
+        final HashBag<String> bag = new HashBag<>();
+        bag.add("A");
+        bag.add("A");
+        bag.add("B");
+
+        final boolean changed = bag.retainAll(java.util.Arrays.asList("A", "B"));
+
+        assertTrue(changed);
+        assertEquals(1, bag.getCount("A"));
+        assertEquals(1, bag.getCount("B"));
+        assertEquals(2, bag.size());
+    }
+
+    @Test
+    void testRetainAllWithEmptyCollectionEmptiesBag() {
+        final HashBag<String> bag = new HashBag<>();
+        bag.add("A");
+        bag.add("B");
+
+        final boolean changed = bag.retainAll(java.util.Collections.emptyList());
+
+        assertTrue(changed);
+        assertEquals(0, bag.size());
+        assertEquals(0, bag.getCount("A"));
+        assertEquals(0, bag.getCount("B"));
+    }
+
+    @Test
+    void testToStringOnEmptyBag() {
+        final HashBag<String> bag = new HashBag<>();
+        assertEquals("[]", bag.toString());
+    }
+
+    @Test
+    void testToStringShowsCountsForEachElement() {
+        final HashBag<String> bag = new HashBag<>();
+        bag.add("A");
+        bag.add("A");
+        bag.add("B");
+        bag.add("C");
+        bag.add("C");
+        bag.add("C");
+
+        final String toString = bag.toString();
+        assertTrue(toString.contains("2:A") || toString.contains("A:2"));
+        assertTrue(toString.contains("1:B") || toString.contains("B:1"));
+        assertTrue(toString.contains("3:C") || toString.contains("C:3"));
+        assertTrue(toString.startsWith("["));
+        assertTrue(toString.endsWith("]"));
     }
 
     @Test

@@ -1,0 +1,314 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>IteratorChain.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons Collections</a> &gt; <a href="index.source.html" class="el_package">org.apache.commons.collections4.iterators</a> &gt; <span class="el_source">IteratorChain.java</span></div><h1>IteratorChain.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.commons.collections4.iterators;
+
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.Objects;
+import java.util.Queue;
+
+/**
+ * An IteratorChain is an Iterator that wraps a number of Iterators.
+ * &lt;p&gt;
+ * This class makes multiple iterators look like one to the caller. When any
+ * method from the Iterator interface is called, the IteratorChain will delegate
+ * to a single underlying Iterator. The IteratorChain will invoke the Iterators
+ * in sequence until all Iterators are exhausted.
+ * &lt;/p&gt;
+ * &lt;p&gt;
+ * Under many circumstances, linking Iterators together in this manner is more
+ * efficient (and convenient) than reading out the contents of each Iterator
+ * into a List and creating a new Iterator.
+ * &lt;/p&gt;
+ * &lt;p&gt;
+ * Calling a method that adds new Iterator &lt;i&gt;after a method in the Iterator
+ * interface has been called&lt;/i&gt; will result in an UnsupportedOperationException.
+ * &lt;/p&gt;
+ * &lt;p&gt;
+ * NOTE: As from version 3.0, the IteratorChain may contain no iterators. In
+ * this case the class will function as an empty iterator.
+ * &lt;/p&gt;
+ * &lt;p&gt;
+ * NOTE: As from version 4.0, the IteratorChain stores the iterators in a queue
+ * and removes any reference to them as soon as they are not used anymore. Thus,
+ * the methods {@code setIterator(Iterator)} and {@code getIterators()} have been
+ * removed and {@link #size()} will return the number of remaining iterators in
+ * the queue.
+ * &lt;/p&gt;
+ *
+ * @param &lt;E&gt; The type of elements in this iterator.
+ * @since 2.1
+ */
+public class IteratorChain&lt;E&gt; implements Iterator&lt;E&gt; {
+
+    /** The chain of iterators */
+<span class="fc" id="L60">    private final Queue&lt;Iterator&lt;? extends E&gt;&gt; iteratorQueue = new LinkedList&lt;&gt;();</span>
+
+    /** The current iterator */
+    private Iterator&lt;? extends E&gt; currentIterator;
+
+    /**
+     * The &quot;last used&quot; Iterator is the Iterator upon which next()
+     * was most recently called used for the remove() operation only
+     */
+    private Iterator&lt;? extends E&gt; lastUsedIterator;
+
+    /**
+     * ComparatorChain is &quot;locked&quot; after the first time compare(Object, Object)
+     * is called
+     */
+    private boolean isLocked;
+
+    /**
+     * Contains the result of the last hasNext() call until next() is invoked
+     */
+    private Boolean cachedHasNextValue;
+
+    /**
+     * Constructs an IteratorChain with no Iterators.
+     * &lt;p&gt;
+     * You will normally use {@link #addIterator(Iterator)} to add some
+     * iterators after using this constructor.
+     * &lt;/p&gt;
+     */
+<span class="fc" id="L89">    public IteratorChain() {</span>
+<span class="fc" id="L90">    }</span>
+
+    /**
+     * Constructs a new {@code IteratorChain} over the collection of
+     * iterators.
+     * &lt;p&gt;
+     * This method takes a collection of iterators. The newly constructed
+     * iterator will iterate through each one of the input iterators in turn.
+     * &lt;/p&gt;
+     *
+     * @param iteratorQueue The collection of iterators, not null
+     * @throws NullPointerException if iterators collection is or contains null
+     * @throws ClassCastException if iterators collection doesn't contain an
+     * iterator
+     */
+<span class="fc" id="L105">    public IteratorChain(final Collection&lt;? extends Iterator&lt;? extends E&gt;&gt; iteratorQueue) {</span>
+<span class="fc bfc" id="L106" title="All 2 branches covered.">        for (final Iterator&lt;? extends E&gt; iterator : iteratorQueue) {</span>
+<span class="fc" id="L107">            addIterator(iterator);</span>
+<span class="fc" id="L108">        }</span>
+<span class="fc" id="L109">    }</span>
+
+    /**
+     * Constructs an IteratorChain with a single Iterator.
+     * &lt;p&gt;
+     * This method takes one iterator. The newly constructed iterator will
+     * iterate through that iterator. Thus calling this constructor on its own
+     * will have no effect other than decorating the input iterator.
+     * &lt;/p&gt;
+     * &lt;p&gt;
+     * You will normally use {@link #addIterator(Iterator)} to add some more
+     * iterators after using this constructor.
+     * &lt;/p&gt;
+     *
+     * @param iterator The first child iterator in the IteratorChain, not null
+     * @throws NullPointerException if the iterator is null
+     */
+<span class="fc" id="L126">    public IteratorChain(final Iterator&lt;? extends E&gt; iterator) {</span>
+<span class="fc" id="L127">        addIterator(iterator);</span>
+<span class="fc" id="L128">    }</span>
+
+    /**
+     * Constructs a new {@code IteratorChain} over the array of iterators.
+     * &lt;p&gt;
+     * This method takes an array of iterators. The newly constructed iterator
+     * will iterate through each one of the input iterators in turn.
+     * &lt;/p&gt;
+     *
+     * @param iteratorQueue The array of iterators, not null
+     * @throws NullPointerException if iterators array is or contains null
+     */
+<span class="fc" id="L140">    public IteratorChain(final Iterator&lt;? extends E&gt;... iteratorQueue) {</span>
+<span class="fc bfc" id="L141" title="All 2 branches covered.">        for (final Iterator&lt;? extends E&gt; element : iteratorQueue) {</span>
+<span class="fc" id="L142">            addIterator(element);</span>
+        }
+<span class="fc" id="L144">    }</span>
+
+    /**
+     * Constructs a new {@code IteratorChain} over the two given iterators.
+     * &lt;p&gt;
+     * This method takes two iterators. The newly constructed iterator will
+     * iterate through each one of the input iterators in turn.
+     * &lt;/p&gt;
+     *
+     * @param first The first child iterator in the IteratorChain, not null
+     * @param second The second child iterator in the IteratorChain, not null
+     * @throws NullPointerException if either iterator is null
+     */
+<span class="fc" id="L157">    public IteratorChain(final Iterator&lt;? extends E&gt; first, final Iterator&lt;? extends E&gt; second) {</span>
+<span class="fc" id="L158">        addIterator(first);</span>
+<span class="fc" id="L159">        addIterator(second);</span>
+<span class="fc" id="L160">    }</span>
+
+    /**
+     * Add an Iterator to the end of the chain
+     *
+     * @param iterator Iterator to add
+     * @throws IllegalStateException if I've already started iterating
+     * @throws NullPointerException if the iterator is null
+     */
+    public void addIterator(final Iterator&lt;? extends E&gt; iterator) {
+<span class="fc" id="L170">        checkLocked();</span>
+<span class="fc" id="L171">        Objects.requireNonNull(iterator, &quot;iterator&quot;);</span>
+<span class="fc bfc" id="L172" title="All 2 branches covered.">        if (iterator instanceof UnmodifiableIterator) {</span>
+<span class="fc" id="L173">            final Iterator&lt;? extends E&gt; underlyingIterator = ((UnmodifiableIterator) iterator).unwrap();</span>
+<span class="fc bfc" id="L174" title="All 2 branches covered.">            if (underlyingIterator instanceof IteratorChain) {</span>
+                // in case it is an IteratorChain, wrap every underlying iterators as unmodifiable
+                // multiple rechainings would otherwise lead to exponential growing number of function calls
+                // when the iteratorChain gets used.
+<span class="fc bfc" id="L178" title="All 2 branches covered.">                for (final Iterator&lt;? extends E&gt; nestedIterator : ((IteratorChain&lt;? extends E&gt;) underlyingIterator).iteratorQueue) {</span>
+<span class="fc" id="L179">                    iteratorQueue.add(UnmodifiableIterator.unmodifiableIterator(nestedIterator));</span>
+<span class="fc" id="L180">                }</span>
+            } else {
+                // we don't know anything about the underlying iterator, simply add it here
+<span class="fc" id="L183">                iteratorQueue.add(iterator);</span>
+            }
+<span class="fc bfc" id="L185" title="All 2 branches covered.">        } else if (iterator instanceof IteratorChain) {</span>
+            // add the wrapped iterators directly instead of reusing the given instance
+            // multiple rechainings would otherwise lead to exponential growing number of function calls
+            // when the iteratorChain gets used.
+<span class="fc" id="L189">            iteratorQueue.addAll(((IteratorChain) iterator).iteratorQueue);</span>
+        } else {
+            // arbitrary other iterator
+<span class="fc" id="L192">            iteratorQueue.add(iterator);</span>
+        }
+<span class="fc" id="L194">    }</span>
+
+    /**
+     * Checks whether the iterator chain is now locked and in use.
+     */
+    private void checkLocked() {
+<span class="fc bfc" id="L200" title="All 2 branches covered.">        if (isLocked) {</span>
+<span class="fc" id="L201">            throw new UnsupportedOperationException(&quot;IteratorChain cannot be changed after the first use of a method from the Iterator interface&quot;);</span>
+        }
+<span class="fc" id="L203">    }</span>
+
+    /**
+     * Return true if any Iterator in the IteratorChain has a remaining element.
+     *
+     * @return true if elements remain
+     */
+    @Override
+    public boolean hasNext() {
+<span class="fc" id="L212">        lockChain();</span>
+<span class="fc bfc" id="L213" title="All 2 branches covered.">        if (cachedHasNextValue == null) {</span>
+<span class="fc" id="L214">            updateCurrentIterator();</span>
+        }
+<span class="fc" id="L216">        return cachedHasNextValue;</span>
+    }
+
+    /**
+     * Determine if modifications can still be made to the IteratorChain.
+     * IteratorChains cannot be modified once they have executed a method from
+     * the Iterator interface.
+     *
+     * @return true if IteratorChain cannot be modified, false if it can
+     */
+    public boolean isLocked() {
+<span class="fc" id="L227">        return isLocked;</span>
+    }
+
+    /**
+     * Lock the chain so no more iterators can be added. This must be called
+     * from all Iterator interface methods.
+     */
+    private void lockChain() {
+<span class="fc bfc" id="L235" title="All 2 branches covered.">        if (!isLocked) {</span>
+<span class="fc" id="L236">            isLocked = true;</span>
+        }
+<span class="fc" id="L238">    }</span>
+
+    /**
+     * Returns the next Object of the current Iterator
+     *
+     * @return Object from the current Iterator
+     * @throws java.util.NoSuchElementException if all the Iterators are
+     * exhausted
+     */
+    @Override
+    public E next() {
+<span class="fc" id="L249">        lockChain();</span>
+<span class="fc bfc" id="L250" title="All 2 branches covered.">        if (cachedHasNextValue == null) {</span>
+<span class="fc" id="L251">            updateCurrentIterator();</span>
+        }
+<span class="fc" id="L253">        lastUsedIterator = currentIterator;</span>
+<span class="fc" id="L254">        cachedHasNextValue = null;</span>
+<span class="fc" id="L255">        return currentIterator.next();</span>
+    }
+
+    /**
+     * Removes from the underlying collection the last element returned by the
+     * Iterator. As with next() and hasNext(), this method calls remove() on the
+     * underlying Iterator. Therefore, this method may throw an
+     * UnsupportedOperationException if the underlying Iterator does not support
+     * this method.
+     *
+     * @throws UnsupportedOperationException if the remove operator is not
+     * supported by the underlying Iterator
+     * @throws IllegalStateException if the next method has not yet been called,
+     * or the remove method has already been called after the last call to the
+     * next method.
+     */
+    @Override
+    public void remove() {
+<span class="fc" id="L273">        lockChain();</span>
+<span class="fc bfc" id="L274" title="All 2 branches covered.">        if (lastUsedIterator == null)  {</span>
+<span class="fc" id="L275">            throw new IllegalStateException(&quot;remove() has been invoked without next()&quot;);</span>
+        }
+<span class="fc" id="L277">        lastUsedIterator.remove();</span>
+<span class="fc" id="L278">        lastUsedIterator = null;  // must never be used twice without next() being invoked</span>
+<span class="fc" id="L279">    }</span>
+
+    /**
+     * Returns the remaining number of Iterators in the current IteratorChain.
+     *
+     * @return Iterator count
+     */
+    public int size() {
+<span class="fc" id="L287">        return iteratorQueue.size();</span>
+    }
+
+    /**
+     * Updates the current iterator field to ensure that the current Iterator is
+     * not exhausted
+     */
+    protected void updateCurrentIterator() {
+<span class="fc bfc" id="L295" title="All 2 branches covered.">        if (currentIterator == null) {</span>
+<span class="fc bfc" id="L296" title="All 2 branches covered.">            if (iteratorQueue.isEmpty()) {</span>
+<span class="fc" id="L297">                currentIterator = EmptyIterator.&lt;E&gt;emptyIterator();</span>
+            } else {
+<span class="fc" id="L299">                currentIterator = iteratorQueue.remove();</span>
+            }
+        }
+        while (true) {
+<span class="fc" id="L303">            cachedHasNextValue = currentIterator.hasNext();</span>
+<span class="fc bfc" id="L304" title="All 2 branches covered.">            if (cachedHasNextValue) {</span>
+<span class="fc" id="L305">                break;</span>
+            }
+<span class="fc bfc" id="L307" title="All 2 branches covered.">            if (iteratorQueue.isEmpty()) {</span>
+<span class="fc" id="L308">                break;</span>
+            }
+<span class="fc" id="L310">            currentIterator = iteratorQueue.remove();</span>
+        }
+<span class="fc" id="L312">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FunctorUtils.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons Collections</a> &gt; <a href="index.source.html" class="el_package">org.apache.commons.collections4.functors</a> &gt; <span class="el_source">FunctorUtils.java</span></div><h1>FunctorUtils.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.commons.collections4.functors;
+
+import java.util.Collection;
+import java.util.Objects;
+import java.util.function.Consumer;
+import java.util.function.Function;
+
+import org.apache.commons.collections4.Predicate;
+
+/**
+ * Internal utilities for functors.
+ *
+ * @since 3.0
+ */
+final class FunctorUtils {
+
+    /**
+     * Clones the given array or returns null on null input.
+     *
+     * @param &lt;T&gt; The array type.
+     * @param array The array to clone.
+     * @return The cloned array or null.
+     */
+    private static &lt;T&gt; T[] clone(final T... array) {
+<span class="pc bpc" id="L41" title="1 of 2 branches missed.">        return array != null ? array.clone() : null;</span>
+    }
+
+    /**
+     * A very simple method that coerces Predicate&lt;? super T&gt; to Predicate&lt;T&gt;.
+     * Due to the {@link Predicate#test(T)} method, Predicate&lt;? super T&gt; is
+     * able to be coerced to Predicate&lt;T&gt; without casting issues.
+     * &lt;p&gt;
+     * This method exists
+     * simply as centralized documentation and atomic unchecked warning
+     * suppression.
+     * &lt;/p&gt;
+     *
+     * @param &lt;T&gt; The type of object the returned predicate should &quot;accept&quot;
+     * @param predicate The predicate to coerce.
+     * @return The coerced predicate.
+     */
+    @SuppressWarnings(&quot;unchecked&quot;)
+    static &lt;R extends java.util.function.Predicate&lt;T&gt;, P extends java.util.function.Predicate&lt;? super T&gt;, T&gt; R coerce(final P predicate) {
+<span class="fc" id="L60">        return (R) predicate;</span>
+    }
+
+    /**
+     * A very simple method that coerces {@code Transformer&lt;? super I, ? extends O&gt;} to {@code Transformer&lt;I, O&gt;}.
+     * &lt;p&gt;
+     * This method exists
+     * simply as centralized documentation and atomic unchecked warning
+     * suppression.
+     * &lt;/p&gt;
+     *
+     * @param &lt;I&gt; The type of object the returned transformer should &quot;accept&quot;
+     * @param &lt;O&gt; The type of object the returned transformer should &quot;produce&quot;
+     * @param transformer The transformer to coerce.
+     * @return The coerced transformer.
+     */
+    @SuppressWarnings(&quot;unchecked&quot;)
+    static &lt;R extends Function&lt;I, O&gt;, P extends Function&lt;? super I, ? extends O&gt;, I, O&gt; R coerce(final P transformer) {
+<span class="nc" id="L78">        return (R) transformer;</span>
+    }
+
+    /**
+     * Clones the consumers to ensure that the internal references can't be updated.
+     *
+     * @param consumers  The consumers to copy.
+     * @return The cloned consumers.
+     */
+    @SuppressWarnings(&quot;unchecked&quot;)
+    static &lt;T extends Consumer&lt;?&gt;&gt; T[] copy(final T... consumers) {
+<span class="fc" id="L89">        return clone(consumers);</span>
+    }
+
+    /**
+     * Clone the predicates to ensure that the internal reference can't be messed with.
+     * Due to the {@link Predicate#test(T)} method, Predicate&lt;? super T&gt; is
+     * able to be coerced to Predicate&lt;T&gt; without casting issues.
+     *
+     * @param predicates  The predicates to copy
+     * @return The cloned predicates
+     */
+    @SuppressWarnings(&quot;unchecked&quot;)
+    static &lt;T extends java.util.function.Predicate&lt;?&gt;&gt; T[] copy(final T... predicates) {
+<span class="fc" id="L102">        return clone(predicates);</span>
+    }
+
+    /**
+     * Copy method.
+     *
+     * @param transformers  The transformers to copy
+     * @return A clone of the transformers
+     */
+    @SuppressWarnings(&quot;unchecked&quot;)
+    static &lt;T extends Function&lt;?, ?&gt;&gt; T[] copy(final T... transformers) {
+<span class="fc" id="L113">        return clone(transformers);</span>
+    }
+
+    /**
+     * Validate the predicates to ensure that all is well.
+     *
+     * @param predicates  The predicates to validate
+     * @return predicate array
+     */
+    static &lt;T&gt; Predicate&lt;? super T&gt;[] validate(final Collection&lt;? extends java.util.function.Predicate&lt;? super T&gt;&gt; predicates) {
+<span class="fc" id="L123">        Objects.requireNonNull(predicates, &quot;predicates&quot;);</span>
+        // convert to array like this to guarantee iterator() ordering
+        @SuppressWarnings(&quot;unchecked&quot;) // OK
+<span class="fc" id="L126">        final Predicate&lt;? super T&gt;[] preds = new Predicate[predicates.size()];</span>
+<span class="fc" id="L127">        int i = 0;</span>
+<span class="fc bfc" id="L128" title="All 2 branches covered.">        for (final java.util.function.Predicate&lt;? super T&gt; predicate : predicates) {</span>
+<span class="fc" id="L129">            preds[i] = (Predicate&lt;? super T&gt;) predicate;</span>
+<span class="fc bfc" id="L130" title="All 2 branches covered.">            if (preds[i] == null) {</span>
+<span class="fc" id="L131">                throw new NullPointerException(&quot;predicates[&quot; + i + &quot;]&quot;);</span>
+            }
+<span class="fc" id="L133">            i++;</span>
+<span class="fc" id="L134">        }</span>
+<span class="fc" id="L135">        return preds;</span>
+    }
+
+    /**
+     * Validates the consumers to ensure that all is well.
+     *
+     * @param consumers  The consumers to validate.
+     */
+    static void validate(final Consumer&lt;?&gt;... consumers) {
+<span class="fc" id="L144">        Objects.requireNonNull(consumers, &quot;consumers&quot;);</span>
+<span class="fc bfc" id="L145" title="All 2 branches covered.">        for (int i = 0; i &lt; consumers.length; i++) {</span>
+<span class="fc bfc" id="L146" title="All 2 branches covered.">            if (consumers[i] == null) {</span>
+<span class="fc" id="L147">                throw new NullPointerException(&quot;closures[&quot; + i + &quot;]&quot;);</span>
+            }
+        }
+<span class="fc" id="L150">    }</span>
+
+    /**
+     * Validate method
+     *
+     * @param functions  The transformers to validate
+     */
+    static void validate(final Function&lt;?, ?&gt;... functions) {
+<span class="fc" id="L158">        Objects.requireNonNull(functions, &quot;functions&quot;);</span>
+<span class="fc bfc" id="L159" title="All 2 branches covered.">        for (int i = 0; i &lt; functions.length; i++) {</span>
+<span class="fc bfc" id="L160" title="All 2 branches covered.">            if (functions[i] == null) {</span>
+<span class="fc" id="L161">                throw new NullPointerException(&quot;functions[&quot; + i + &quot;]&quot;);</span>
+            }
+        }
+<span class="fc" id="L164">    }</span>
+
+    /**
+     * Validate the predicates to ensure that all is well.
+     *
+     * @param predicates  The predicates to validate
+     */
+    static void validate(final java.util.function.Predicate&lt;?&gt;... predicates) {
+<span class="fc" id="L172">        Objects.requireNonNull(predicates, &quot;predicates&quot;);</span>
+<span class="fc bfc" id="L173" title="All 2 branches covered.">        for (int i = 0; i &lt; predicates.length; i++) {</span>
+<span class="fc bfc" id="L174" title="All 2 branches covered.">            if (predicates[i] == null) {</span>
+<span class="fc" id="L175">                throw new NullPointerException(&quot;predicates[&quot; + i + &quot;]&quot;);</span>
+            }
+        }
+<span class="fc" id="L178">    }</span>
+
+    /**
+     * Restricted constructor.
+     */
+    private FunctorUtils() {
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

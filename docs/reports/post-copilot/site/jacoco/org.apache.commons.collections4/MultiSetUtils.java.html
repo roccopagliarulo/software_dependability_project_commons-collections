@@ -1,0 +1,372 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MultiSetUtils.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons Collections</a> &gt; <a href="index.source.html" class="el_package">org.apache.commons.collections4</a> &gt; <span class="el_source">MultiSetUtils.java</span></div><h1>MultiSetUtils.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.commons.collections4;
+
+import java.util.ArrayList;
+import java.util.Objects;
+
+import org.apache.commons.collections4.multiset.HashMultiSet;
+import org.apache.commons.collections4.multiset.PredicatedMultiSet;
+import org.apache.commons.collections4.multiset.PredicatedSortedMultiSet;
+import org.apache.commons.collections4.multiset.SynchronizedMultiSet;
+import org.apache.commons.collections4.multiset.SynchronizedSortedMultiSet;
+import org.apache.commons.collections4.multiset.TransformedMultiSet;
+import org.apache.commons.collections4.multiset.TransformedSortedMultiSet;
+import org.apache.commons.collections4.multiset.TreeMultiSet;
+import org.apache.commons.collections4.multiset.UnmodifiableMultiSet;
+import org.apache.commons.collections4.multiset.UnmodifiableSortedMultiSet;
+
+/**
+ * Provides utility methods and decorators for {@link MultiSet} and
+ * {@link SortedMultiSet} instances.
+ *
+ * @since 4.1
+ */
+public class MultiSetUtils {
+
+    /**
+     * An empty unmodifiable multiset.
+     */
+    @SuppressWarnings(&quot;rawtypes&quot;) // OK, empty multiset is compatible with any type
+<span class="fc" id="L45">    public static final MultiSet EMPTY_MULTISET =</span>
+<span class="fc" id="L46">        UnmodifiableMultiSet.unmodifiableMultiSet(new HashMultiSet&lt;&gt;());</span>
+
+    /**
+     * An empty unmodifiable sorted multiset.
+     *
+     * @since 4.6.0
+     */
+    @SuppressWarnings(&quot;rawtypes&quot;) // OK, empty multiset is compatible with any type
+<span class="fc" id="L54">    public static final SortedMultiSet EMPTY_SORTED_MULTISET =</span>
+<span class="fc" id="L55">        UnmodifiableSortedMultiSet.unmodifiableSortedMultiSet(new TreeMultiSet&lt;&gt;());</span>
+
+    /**
+     * Returns {@code true} if {@code superMultiSet} contains at least as many
+     * occurrences of each element as {@code subMultiSet} does; in other words,
+     * whether {@code subMultiSet} is a sub-multiset of {@code superMultiSet}.
+     * &lt;p&gt;
+     * This method provides the cardinality-respecting behavior of
+     * {@link Bag#containsAll(java.util.Collection)} under an explicitly named
+     * method. To compare against a plain collection, wrap it first, for example
+     * {@code containsOccurrences(multiSet, new HashMultiSet&lt;&gt;(coll))}.
+     * &lt;/p&gt;
+     *
+     * @param superMultiSet The multiset to check against, must not be null
+     * @param subMultiSet The multiset whose occurrences must all be present, must not be null
+     * @return {@code true} if {@code superMultiSet} contains all occurrences in {@code subMultiSet}
+     * @throws NullPointerException if either MultiSet is null
+     * @since 4.6.0
+     */
+    public static boolean containsOccurrences(final MultiSet&lt;?&gt; superMultiSet, final MultiSet&lt;?&gt; subMultiSet) {
+<span class="fc" id="L75">        Objects.requireNonNull(superMultiSet, &quot;superMultiSet&quot;);</span>
+<span class="fc" id="L76">        Objects.requireNonNull(subMultiSet, &quot;subMultiSet&quot;);</span>
+<span class="fc bfc" id="L77" title="All 2 branches covered.">        for (final MultiSet.Entry&lt;?&gt; entry : subMultiSet.entrySet()) {</span>
+<span class="fc bfc" id="L78" title="All 2 branches covered.">            if (superMultiSet.getCount(entry.getElement()) &lt; entry.getCount()) {</span>
+<span class="fc" id="L79">                return false;</span>
+            }
+<span class="fc" id="L81">        }</span>
+<span class="fc" id="L82">        return true;</span>
+    }
+
+    /**
+     * Gets an empty {@code MultiSet}.
+     *
+     * @param &lt;E&gt; The element type
+     * @return An empty MultiSet
+     */
+    @SuppressWarnings(&quot;unchecked&quot;) // OK, empty multiset is compatible with any type
+    public static &lt;E&gt; MultiSet&lt;E&gt; emptyMultiSet() {
+<span class="fc" id="L93">        return EMPTY_MULTISET;</span>
+    }
+
+    /**
+     * Gets an empty {@code SortedMultiSet}.
+     *
+     * @param &lt;E&gt; The element type
+     * @return An empty SortedMultiSet
+     * @since 4.6.0
+     */
+    @SuppressWarnings(&quot;unchecked&quot;) // OK, empty multiset is compatible with any type
+    public static &lt;E&gt; SortedMultiSet&lt;E&gt; emptySortedMultiSet() {
+<span class="nc" id="L105">        return EMPTY_SORTED_MULTISET;</span>
+    }
+
+    /**
+     * Returns a predicated (validating) multiset backed by the given multiset.
+     * &lt;p&gt;
+     * Only objects that pass the test in the given predicate can be added to
+     * the multiset. Trying to add an invalid object results in an
+     * IllegalArgumentException. It is important not to use the original multiset
+     * after invoking this method, as it is a backdoor for adding invalid
+     * objects.
+     * &lt;/p&gt;
+     *
+     * @param &lt;E&gt; The element type
+     * @param multiset The multiset to predicate, must not be null
+     * @param predicate The predicate for the multiset, must not be null
+     * @return A predicated multiset backed by the given multiset
+     * @throws NullPointerException if the MultiSet or Predicate is null
+     */
+    public static &lt;E&gt; MultiSet&lt;E&gt; predicatedMultiSet(final MultiSet&lt;E&gt; multiset,
+            final Predicate&lt;? super E&gt; predicate) {
+<span class="fc" id="L126">        return PredicatedMultiSet.predicatedMultiSet(multiset, predicate);</span>
+    }
+
+    /**
+     * Returns a predicated (validating) sorted multiset backed by the given sorted
+     * multiset.
+     * &lt;p&gt;
+     * Only objects that pass the test in the given predicate can be added to
+     * the multiset. Trying to add an invalid object results in an
+     * IllegalArgumentException. It is important not to use the original multiset
+     * after invoking this method, as it is a backdoor for adding invalid
+     * objects.
+     * &lt;/p&gt;
+     *
+     * @param &lt;E&gt; The element type
+     * @param multiset The sorted multiset to predicate, must not be null
+     * @param predicate The predicate for the multiset, must not be null
+     * @return A predicated sorted multiset backed by the given sorted multiset
+     * @throws NullPointerException if the SortedMultiSet or Predicate is null
+     * @since 4.6.0
+     */
+    public static &lt;E&gt; SortedMultiSet&lt;E&gt; predicatedSortedMultiSet(final SortedMultiSet&lt;E&gt; multiset,
+            final Predicate&lt;? super E&gt; predicate) {
+<span class="nc" id="L149">        return PredicatedSortedMultiSet.predicatedSortedMultiSet(multiset, predicate);</span>
+    }
+
+    /**
+     * For each occurrence of an element in {@code occurrencesToRemove}, removes
+     * one occurrence of that element from {@code multiSetToModify}, if present.
+     * That is, if {@code occurrencesToRemove} contains {@code n} occurrences of
+     * an element, {@code multiSetToModify} will have {@code n} fewer occurrences,
+     * assuming it had at least {@code n} to begin with.
+     * &lt;p&gt;
+     * This method provides the cardinality-respecting behavior of
+     * {@link Bag#removeAll(java.util.Collection)} under an explicitly named
+     * method. To remove the occurrences of a plain collection, wrap it first,
+     * for example {@code removeOccurrences(multiSet, new HashMultiSet&lt;&gt;(coll))}.
+     * &lt;/p&gt;
+     *
+     * @param multiSetToModify The multiset to remove occurrences from, must not be null
+     * @param occurrencesToRemove The occurrences to remove, must not be null
+     * @return {@code true} if {@code multiSetToModify} was changed as a result of this operation
+     * @throws NullPointerException if either MultiSet is null
+     * @since 4.6.0
+     */
+    public static boolean removeOccurrences(final MultiSet&lt;?&gt; multiSetToModify, final MultiSet&lt;?&gt; occurrencesToRemove) {
+<span class="fc" id="L172">        Objects.requireNonNull(multiSetToModify, &quot;multiSetToModify&quot;);</span>
+<span class="fc" id="L173">        Objects.requireNonNull(occurrencesToRemove, &quot;occurrencesToRemove&quot;);</span>
+<span class="fc bfc" id="L174" title="All 2 branches covered.">        if (multiSetToModify == occurrencesToRemove) {</span>
+<span class="fc bfc" id="L175" title="All 2 branches covered.">            final boolean changed = !multiSetToModify.isEmpty();</span>
+<span class="fc" id="L176">            multiSetToModify.clear();</span>
+<span class="fc" id="L177">            return changed;</span>
+        }
+<span class="fc" id="L179">        boolean changed = false;</span>
+        // snapshot the entries to avoid ConcurrentModificationException when
+        // occurrencesToRemove is a view backed by multiSetToModify
+<span class="fc bfc" id="L182" title="All 2 branches covered.">        for (final MultiSet.Entry&lt;?&gt; entry : new ArrayList&lt;&gt;(occurrencesToRemove.entrySet())) {</span>
+<span class="fc bfc" id="L183" title="All 2 branches covered.">            if (multiSetToModify.remove(entry.getElement(), entry.getCount()) &gt; 0) {</span>
+<span class="fc" id="L184">                changed = true;</span>
+            }
+<span class="fc" id="L186">        }</span>
+<span class="fc" id="L187">        return changed;</span>
+    }
+
+    /**
+     * Modifies {@code multiSetToModify} so that no element has more occurrences
+     * than it has in {@code occurrencesToRetain}. That is, if
+     * {@code occurrencesToRetain} contains {@code n} occurrences of an element
+     * and {@code multiSetToModify} has {@code m &gt; n} occurrences, {@code m - n}
+     * occurrences are removed; elements not contained in
+     * {@code occurrencesToRetain} are removed entirely.
+     * &lt;p&gt;
+     * This method provides the cardinality-respecting behavior of
+     * {@link Bag#retainAll(java.util.Collection)} under an explicitly named
+     * method. To retain the occurrences of a plain collection, wrap it first,
+     * for example {@code retainOccurrences(multiSet, new HashMultiSet&lt;&gt;(coll))}.
+     * &lt;/p&gt;
+     *
+     * @param &lt;E&gt; The element type
+     * @param multiSetToModify The multiset to limit occurrences in, must not be null
+     * @param occurrencesToRetain The occurrences to retain, must not be null
+     * @return {@code true} if {@code multiSetToModify} was changed as a result of this operation
+     * @throws NullPointerException if either MultiSet is null
+     * @since 4.6.0
+     */
+    public static &lt;E&gt; boolean retainOccurrences(final MultiSet&lt;E&gt; multiSetToModify, final MultiSet&lt;?&gt; occurrencesToRetain) {
+<span class="fc" id="L212">        Objects.requireNonNull(multiSetToModify, &quot;multiSetToModify&quot;);</span>
+<span class="fc" id="L213">        Objects.requireNonNull(occurrencesToRetain, &quot;occurrencesToRetain&quot;);</span>
+<span class="fc" id="L214">        boolean changed = false;</span>
+<span class="fc bfc" id="L215" title="All 2 branches covered.">        for (final E element : new ArrayList&lt;&gt;(multiSetToModify.uniqueSet())) {</span>
+<span class="fc" id="L216">            final int retainCount = occurrencesToRetain.getCount(element);</span>
+<span class="fc bfc" id="L217" title="All 2 branches covered.">            if (multiSetToModify.getCount(element) &gt; retainCount) {</span>
+<span class="fc" id="L218">                multiSetToModify.setCount(element, retainCount);</span>
+<span class="fc" id="L219">                changed = true;</span>
+            }
+<span class="fc" id="L221">        }</span>
+<span class="fc" id="L222">        return changed;</span>
+    }
+
+    /**
+     * Returns a synchronized (thread-safe) multiset backed by the given multiset.
+     * In order to guarantee serial access, it is critical that all access to the
+     * backing multiset is accomplished through the returned multiset.
+     * &lt;p&gt;
+     * It is imperative that the user manually synchronize on the returned multiset
+     * when iterating over it:
+     * &lt;/p&gt;
+     * &lt;pre&gt;
+     * MultiSet multiset = MultiSetUtils.synchronizedMultiSet(new HashMultiSet());
+     * ...
+     * synchronized(multiset) {
+     *     Iterator i = multiset.iterator(); // Must be in synchronized block
+     *     while (i.hasNext())
+     *         foo(i.next());
+     *     }
+     * }
+     * &lt;/pre&gt;
+     *
+     * Failure to follow this advice may result in non-deterministic behavior.
+     *
+     * @param &lt;E&gt; The element type
+     * @param multiset The multiset to synchronize, must not be null
+     * @return A synchronized multiset backed by that multiset
+     * @throws NullPointerException if the MultiSet is null
+     */
+    public static &lt;E&gt; MultiSet&lt;E&gt; synchronizedMultiSet(final MultiSet&lt;E&gt; multiset) {
+<span class="fc" id="L252">        return SynchronizedMultiSet.synchronizedMultiSet(multiset);</span>
+    }
+
+    /**
+     * Returns a synchronized (thread-safe) sorted multiset backed by the given
+     * sorted multiset. In order to guarantee serial access, it is critical that all
+     * access to the backing multiset is accomplished through the returned multiset.
+     * &lt;p&gt;
+     * It is imperative that the user manually synchronize on the returned multiset
+     * when iterating over it:
+     * &lt;/p&gt;
+     * &lt;pre&gt;
+     * SortedMultiSet multiset = MultiSetUtils.synchronizedSortedMultiSet(new TreeMultiSet());
+     * ...
+     * synchronized(multiset) {
+     *     Iterator i = multiset.iterator(); // Must be in synchronized block
+     *     while (i.hasNext())
+     *         foo(i.next());
+     *     }
+     * }
+     * &lt;/pre&gt;
+     *
+     * Failure to follow this advice may result in non-deterministic behavior.
+     *
+     * @param &lt;E&gt; The element type
+     * @param multiset The sorted multiset to synchronize, must not be null
+     * @return A synchronized sorted multiset backed by that multiset
+     * @throws NullPointerException if the SortedMultiSet is null
+     * @since 4.6.0
+     */
+    public static &lt;E&gt; SortedMultiSet&lt;E&gt; synchronizedSortedMultiSet(final SortedMultiSet&lt;E&gt; multiset) {
+<span class="nc" id="L283">        return SynchronizedSortedMultiSet.synchronizedSortedMultiSet(multiset);</span>
+    }
+
+    /**
+     * Returns a transformed multiset backed by the given multiset.
+     * &lt;p&gt;
+     * Each object is passed through the transformer as it is added to the
+     * MultiSet. It is important not to use the original multiset after invoking this
+     * method, as it is a backdoor for adding untransformed objects.
+     * &lt;/p&gt;
+     * &lt;p&gt;
+     * Existing entries in the specified multiset will not be transformed.
+     * If you want that behavior, see
+     * {@link TransformedMultiSet#transformedMultiSet(MultiSet, Transformer)}.
+     * &lt;/p&gt;
+     *
+     * @param &lt;E&gt; The element type
+     * @param multiset The multiset to transform, must not be null
+     * @param transformer The transformer for the multiset, must not be null
+     * @return A transformed multiset backed by the given multiset
+     * @throws NullPointerException if the MultiSet or Transformer is null
+     * @since 4.6.0
+     */
+    public static &lt;E&gt; MultiSet&lt;E&gt; transformingMultiSet(final MultiSet&lt;E&gt; multiset,
+            final Transformer&lt;? super E, ? extends E&gt; transformer) {
+<span class="fc" id="L308">        return TransformedMultiSet.transformingMultiSet(multiset, transformer);</span>
+    }
+
+    /**
+     * Returns a transformed sorted multiset backed by the given multiset.
+     * &lt;p&gt;
+     * Each object is passed through the transformer as it is added to the
+     * MultiSet. It is important not to use the original multiset after invoking this
+     * method, as it is a backdoor for adding untransformed objects.
+     * &lt;/p&gt;
+     * &lt;p&gt;
+     * Existing entries in the specified multiset will not be transformed.
+     * If you want that behavior, see
+     * {@link TransformedSortedMultiSet#transformedSortedMultiSet(SortedMultiSet, Transformer)}.
+     * &lt;/p&gt;
+     *
+     * @param &lt;E&gt; The element type
+     * @param multiset The sorted multiset to transform, must not be null
+     * @param transformer The transformer for the multiset, must not be null
+     * @return A transformed sorted multiset backed by the given multiset
+     * @throws NullPointerException if the SortedMultiSet or Transformer is null
+     * @since 4.6.0
+     */
+    public static &lt;E&gt; SortedMultiSet&lt;E&gt; transformingSortedMultiSet(final SortedMultiSet&lt;E&gt; multiset,
+            final Transformer&lt;? super E, ? extends E&gt; transformer) {
+<span class="fc" id="L333">        return TransformedSortedMultiSet.transformingSortedMultiSet(multiset, transformer);</span>
+    }
+
+    /**
+     * Returns an unmodifiable view of the given multiset. Any modification attempts
+     * to the returned multiset will raise an {@link UnsupportedOperationException}.
+     *
+     * @param &lt;E&gt; The element type
+     * @param multiset The multiset whose unmodifiable view is to be returned, must not be null
+     * @return An unmodifiable view of that multiset
+     * @throws NullPointerException if the MultiSet is null
+     */
+    public static &lt;E&gt; MultiSet&lt;E&gt; unmodifiableMultiSet(final MultiSet&lt;? extends E&gt; multiset) {
+<span class="fc" id="L346">        return UnmodifiableMultiSet.unmodifiableMultiSet(multiset);</span>
+    }
+
+    /**
+     * Returns an unmodifiable view of the given sorted multiset. Any modification
+     * attempts to the returned multiset will raise an
+     * {@link UnsupportedOperationException}.
+     *
+     * @param &lt;E&gt; The element type
+     * @param multiset The sorted multiset whose unmodifiable view is to be returned, must not be null
+     * @return An unmodifiable view of that sorted multiset
+     * @throws NullPointerException if the SortedMultiSet is null
+     * @since 4.6.0
+     */
+    public static &lt;E&gt; SortedMultiSet&lt;E&gt; unmodifiableSortedMultiSet(final SortedMultiSet&lt;? extends E&gt; multiset) {
+<span class="nc" id="L361">        return UnmodifiableSortedMultiSet.unmodifiableSortedMultiSet(multiset);</span>
+    }
+
+    /**
+     * Don't allow instances.
+     */
+    private MultiSetUtils() {
+        // empty
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

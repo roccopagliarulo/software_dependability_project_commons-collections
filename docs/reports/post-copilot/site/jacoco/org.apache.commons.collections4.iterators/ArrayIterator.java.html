@@ -1,0 +1,197 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ArrayIterator.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons Collections</a> &gt; <a href="index.source.html" class="el_package">org.apache.commons.collections4.iterators</a> &gt; <span class="el_source">ArrayIterator.java</span></div><h1>ArrayIterator.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.commons.collections4.iterators;
+
+import java.lang.reflect.Array;
+import java.util.Iterator;
+import java.util.NoSuchElementException;
+
+import org.apache.commons.collections4.ResettableIterator;
+
+/**
+ * Implements an {@link Iterator Iterator} over any array.
+ * &lt;p&gt;
+ * The array can be either an array of object or of primitives. If you know
+ * that you have an object array, the
+ * {@link ObjectArrayIterator ObjectArrayIterator}
+ * class is a better choice, as it will perform better.
+ * &lt;/p&gt;
+ * &lt;p&gt;
+ * The iterator implements a {@link #reset} method, allowing the reset of
+ * the iterator back to the start if required.
+ * &lt;/p&gt;
+ *
+ * @param &lt;E&gt; The type of elements returned by this iterator.
+ * @since 1.0
+ */
+public class ArrayIterator&lt;E&gt; implements ResettableIterator&lt;E&gt; {
+
+    /** The array to iterate over */
+    final Object array;
+
+    /** The start index to loop from */
+    final int startIndex;
+
+    /** The end index to loop to */
+    final int endIndex;
+
+    /** The current iterator index */
+    int index;
+
+    /**
+     * Constructs an ArrayIterator that will iterate over the values in the
+     * specified array.
+     *
+     * @param array The array to iterate over.
+     * @throws IllegalArgumentException if {@code array} is not an array.
+     * @throws NullPointerException if {@code array} is {@code null}
+     */
+    public ArrayIterator(final Object array) {
+<span class="fc" id="L64">        this(array, 0);</span>
+<span class="fc" id="L65">    }</span>
+
+    /**
+     * Constructs an ArrayIterator that will iterate over the values in the
+     * specified array from a specific start index.
+     *
+     * @param array  The array to iterate over.
+     * @param startIndex  The index to start iterating at.
+     * @throws IllegalArgumentException if {@code array} is not an array.
+     * @throws NullPointerException if {@code array} is {@code null}
+     * @throws IndexOutOfBoundsException if the index is invalid
+     */
+    public ArrayIterator(final Object array, final int startIndex) {
+<span class="fc" id="L78">        this(array, startIndex, Array.getLength(array));</span>
+<span class="fc" id="L79">    }</span>
+
+    /**
+     * Constructs an ArrayIterator that will iterate over a range of values
+     * in the specified array.
+     *
+     * @param array  The array to iterate over.
+     * @param startIndex  The index to start iterating at.
+     * @param endIndex  The index to finish iterating at.
+     * @throws IllegalArgumentException if {@code array} is not an array.
+     * @throws NullPointerException if {@code array} is {@code null}
+     * @throws IndexOutOfBoundsException if either index is invalid
+     */
+<span class="fc" id="L92">    public ArrayIterator(final Object array, final int startIndex, final int endIndex) {</span>
+<span class="fc" id="L93">        this.array = array;</span>
+<span class="fc" id="L94">        this.startIndex = startIndex;</span>
+<span class="fc" id="L95">        this.endIndex = endIndex;</span>
+<span class="fc" id="L96">        this.index = startIndex;</span>
+
+<span class="fc" id="L98">        final int len = Array.getLength(array);</span>
+<span class="fc" id="L99">        checkBound(startIndex, len, &quot;start&quot;);</span>
+<span class="fc" id="L100">        checkBound(endIndex, len, &quot;end&quot;);</span>
+<span class="fc bfc" id="L101" title="All 2 branches covered.">        if (endIndex &lt; startIndex) {</span>
+<span class="fc" id="L102">            throw new IllegalArgumentException(&quot;End index must not be less than start index.&quot;);</span>
+        }
+<span class="fc" id="L104">    }</span>
+
+    /**
+     * Checks whether the index is valid or not.
+     *
+     * @param bound  The index to check
+     * @param len  The length of the array
+     * @param type  The index type (for error messages)
+     * @throws IndexOutOfBoundsException if the index is invalid
+     */
+    protected void checkBound(final int bound, final int len, final String type) {
+<span class="fc bfc" id="L115" title="All 2 branches covered.">        if (bound &gt; len) {</span>
+<span class="fc" id="L116">            throw new ArrayIndexOutOfBoundsException(&quot;Attempt to make an ArrayIterator that &quot; + type + &quot;s beyond the end of the array. &quot;);</span>
+        }
+<span class="fc bfc" id="L118" title="All 2 branches covered.">        if (bound &lt; 0) {</span>
+<span class="fc" id="L119">            throw new ArrayIndexOutOfBoundsException(&quot;Attempt to make an ArrayIterator that &quot; + type + &quot;s before the start of the array. &quot;);</span>
+        }
+<span class="fc" id="L121">    }</span>
+
+    /**
+     * Gets the array that this iterator is iterating over.
+     *
+     * @return The array this iterator iterates over.
+     */
+    public Object getArray() {
+<span class="nc" id="L129">        return array;</span>
+    }
+
+    /**
+     * Gets the end index to loop to.
+     *
+     * @return The end index
+     * @since 4.0
+     */
+    public int getEndIndex() {
+<span class="nc" id="L139">        return endIndex;</span>
+    }
+
+    /**
+     * Gets the start index to loop from.
+     *
+     * @return The start index
+     * @since 4.0
+     */
+    public int getStartIndex() {
+<span class="nc" id="L149">        return startIndex;</span>
+    }
+
+    /**
+     * Returns true if there are more elements to return from the array.
+     *
+     * @return true if there is a next element to return
+     */
+    @Override
+    public boolean hasNext() {
+<span class="fc bfc" id="L159" title="All 2 branches covered.">        return index &lt; endIndex;</span>
+    }
+
+    /**
+     * Returns the next element in the array.
+     *
+     * @return The next element in the array
+     * @throws NoSuchElementException if all the elements in the array
+     *  have already been returned
+     */
+    @Override
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public E next() {
+<span class="fc bfc" id="L172" title="All 2 branches covered.">        if (!hasNext()) {</span>
+<span class="fc" id="L173">            throw new NoSuchElementException();</span>
+        }
+<span class="fc" id="L175">        return (E) Array.get(array, index++);</span>
+    }
+
+    /**
+     * Always throws {@link UnsupportedOperationException}.
+     *
+     * @throws UnsupportedOperationException Always thrown.
+     */
+    @Override
+    public void remove() {
+<span class="fc" id="L185">        throw new UnsupportedOperationException(&quot;remove() method is not supported&quot;);</span>
+    }
+
+    /**
+     * Resets the iterator back to the start index.
+     */
+    @Override
+    public void reset() {
+<span class="fc" id="L193">        index = startIndex;</span>
+<span class="fc" id="L194">    }</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

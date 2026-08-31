@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SynchronizedSortedMultiSet.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons Collections</a> &gt; <a href="index.source.html" class="el_package">org.apache.commons.collections4.multiset</a> &gt; <span class="el_source">SynchronizedSortedMultiSet.java</span></div><h1>SynchronizedSortedMultiSet.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.commons.collections4.multiset;
+
+import java.util.Comparator;
+
+import org.apache.commons.collections4.SortedMultiSet;
+
+/**
+ * Decorates another {@link SortedMultiSet} to synchronize its behavior
+ * for a multithreaded environment.
+ * &lt;p&gt;
+ * Methods are synchronized, then forwarded to the decorated multiset.
+ * Iterators must be separately synchronized around the loop.
+ * &lt;/p&gt;
+ *
+ * @param &lt;E&gt; The type held in the multiset.
+ * @since 4.6.0
+ */
+public class SynchronizedSortedMultiSet&lt;E&gt; extends SynchronizedMultiSet&lt;E&gt; implements SortedMultiSet&lt;E&gt; {
+
+    /** Serialization version */
+    private static final long serialVersionUID = 20260705L;
+
+    /**
+     * Factory method to create a synchronized sorted multiset.
+     *
+     * @param &lt;E&gt; The type of the elements in the multiset
+     * @param multiset  The multiset to decorate, must not be null
+     * @return A new synchronized SortedMultiSet
+     * @throws NullPointerException if multiset is null
+     */
+    public static &lt;E&gt; SynchronizedSortedMultiSet&lt;E&gt; synchronizedSortedMultiSet(final SortedMultiSet&lt;E&gt; multiset) {
+<span class="fc" id="L48">        return new SynchronizedSortedMultiSet&lt;&gt;(multiset);</span>
+    }
+
+    /**
+     * Constructor that wraps (not copies).
+     *
+     * @param multiset  The multiset to decorate, must not be null
+     * @throws NullPointerException if multiset is null
+     */
+    protected SynchronizedSortedMultiSet(final SortedMultiSet&lt;E&gt; multiset) {
+<span class="fc" id="L58">        super(multiset);</span>
+<span class="fc" id="L59">    }</span>
+
+    /**
+     * Constructor that wraps (not copies).
+     *
+     * @param multiset  The multiset to decorate, must not be null
+     * @param lock  The lock to use, must not be null
+     * @throws NullPointerException if multiset or lock is null
+     */
+    protected SynchronizedSortedMultiSet(final SortedMultiSet&lt;E&gt; multiset, final Object lock) {
+<span class="nc" id="L69">        super(multiset, lock);</span>
+<span class="nc" id="L70">    }</span>
+
+    @Override
+    public Comparator&lt;? super E&gt; comparator() {
+<span class="nc" id="L74">        synchronized (lock) {</span>
+<span class="nc" id="L75">            return decorated().comparator();</span>
+        }
+    }
+
+    /**
+     * Gets the multiset being decorated.
+     *
+     * @return The decorated multiset
+     */
+    @Override
+    protected SortedMultiSet&lt;E&gt; decorated() {
+<span class="fc" id="L86">        return (SortedMultiSet&lt;E&gt;) super.decorated();</span>
+    }
+
+    @Override
+    public E first() {
+<span class="fc" id="L91">        synchronized (lock) {</span>
+<span class="fc" id="L92">            return decorated().first();</span>
+        }
+    }
+
+    @Override
+    public E last() {
+<span class="fc" id="L98">        synchronized (lock) {</span>
+<span class="fc" id="L99">            return decorated().last();</span>
+        }
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

@@ -1,0 +1,1142 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AbstractLinkedListJava21.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons Collections</a> &gt; <a href="index.source.html" class="el_package">org.apache.commons.collections4.list</a> &gt; <span class="el_source">AbstractLinkedListJava21.java</span></div><h1>AbstractLinkedListJava21.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.commons.collections4.list;
+
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.lang.reflect.Array;
+import java.util.AbstractList;
+import java.util.Collection;
+import java.util.ConcurrentModificationException;
+import java.util.Iterator;
+import java.util.List;
+import java.util.ListIterator;
+import java.util.NoSuchElementException;
+import java.util.Objects;
+
+import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.collections4.OrderedIterator;
+
+/**
+ * An abstract implementation of a linked list which provides numerous points for
+ * subclasses to override.
+ * &lt;p&gt;
+ * Overridable methods are provided to change the storage node and to change how
+ * nodes are added to and removed. Hopefully, all you need for unusual subclasses
+ * is here.
+ * &lt;/p&gt;
+ * &lt;p&gt;
+ * This is a copy of AbstractLinkedList, modified to be compatible with Java 21
+ * (see COLLECTIONS-842 for details).
+ * &lt;/p&gt;
+ *
+ * @param &lt;E&gt; The type of elements in this list
+ * @see AbstractLinkedList
+ * @since 4.5.0-M3
+ */
+public abstract class AbstractLinkedListJava21&lt;E&gt; implements List&lt;E&gt; {
+
+    /*
+     * Implementation notes:
+     * - a standard circular doubly-linked list
+     * - a marker node is stored to mark the start and the end of the list
+     * - node creation and removal always occurs through createNode() and
+     *   removeNode().
+     * - a modification count is kept, with the same semantics as
+     * {@link java.util.LinkedList}.
+     * - respects {@link AbstractList#modCount}
+     */
+
+    /**
+     * A list iterator over the linked list.
+     *
+     * @param &lt;E&gt; The type of elements in this iterator.
+     */
+    protected static class LinkedListIterator&lt;E&gt; implements ListIterator&lt;E&gt;, OrderedIterator&lt;E&gt; {
+
+        /** The parent list */
+        protected final AbstractLinkedListJava21&lt;E&gt; parent;
+
+        /**
+         * The node that will be returned by {@link #next()}. If this is equal
+         * to {@link AbstractLinkedListJava21#header} then there are no more values to return.
+         */
+        protected Node&lt;E&gt; next;
+
+        /**
+         * The index of {@link #next}.
+         */
+        protected int nextIndex;
+
+        /**
+         * The last node that was returned by {@link #next()} or {@link
+         * #previous()}. Set to {@code null} if {@link #next()} or {@link
+         * #previous()} haven't been called, or if the node has been removed
+         * with {@link #remove()} or a new node added with {@link #add(Object)}.
+         * Should be accessed through {@link #getLastNodeReturned()} to enforce
+         * this behavior.
+         */
+        protected Node&lt;E&gt; current;
+
+        /**
+         * The modification count that the list is expected to have. If the list
+         * doesn't have this count, then a
+         * {@link ConcurrentModificationException} may be thrown by
+         * the operations.
+         */
+        protected int expectedModCount;
+
+        /**
+         * Create a ListIterator for a list.
+         *
+         * @param parent  The parent list
+         * @param fromIndex  The index to start at
+         * @throws IndexOutOfBoundsException if fromIndex is less than 0 or greater than the size of the list
+         */
+        protected LinkedListIterator(final AbstractLinkedListJava21&lt;E&gt; parent, final int fromIndex)
+<span class="fc" id="L112">                throws IndexOutOfBoundsException {</span>
+<span class="fc" id="L113">            this.parent = parent;</span>
+<span class="fc" id="L114">            this.expectedModCount = parent.modCount;</span>
+<span class="fc" id="L115">            this.next = parent.getNode(fromIndex, true);</span>
+<span class="fc" id="L116">            this.nextIndex = fromIndex;</span>
+<span class="fc" id="L117">        }</span>
+
+        @Override
+        public void add(final E obj) {
+<span class="fc" id="L121">            checkModCount();</span>
+<span class="fc" id="L122">            parent.addNodeBefore(next, obj);</span>
+<span class="fc" id="L123">            current = null;</span>
+<span class="fc" id="L124">            nextIndex++;</span>
+<span class="fc" id="L125">            expectedModCount++;</span>
+<span class="fc" id="L126">        }</span>
+
+        /**
+         * Checks the modification count of the list is the value that this
+         * object expects.
+         *
+         * @throws ConcurrentModificationException If the list's modification
+         * count isn't the value that was expected.
+         */
+        protected void checkModCount() {
+<span class="pc bpc" id="L136" title="1 of 2 branches missed.">            if (parent.modCount != expectedModCount) {</span>
+<span class="nc" id="L137">                throw new ConcurrentModificationException();</span>
+            }
+<span class="fc" id="L139">        }</span>
+
+        /**
+         * Gets the last node returned.
+         *
+         * @return The last node returned
+         * @throws IllegalStateException If {@link #next()} or {@link #previous()} haven't been called,
+         * or if the node has been removed with {@link #remove()} or a new node added with {@link #add(Object)}.
+         */
+        protected Node&lt;E&gt; getLastNodeReturned() throws IllegalStateException {
+<span class="fc bfc" id="L149" title="All 2 branches covered.">            if (current == null) {</span>
+<span class="fc" id="L150">                throw new IllegalStateException();</span>
+            }
+<span class="fc" id="L152">            return current;</span>
+        }
+
+        @Override
+        public boolean hasNext() {
+<span class="fc bfc" id="L157" title="All 2 branches covered.">            return next != parent.header;</span>
+        }
+
+        @Override
+        public boolean hasPrevious() {
+<span class="fc bfc" id="L162" title="All 2 branches covered.">            return next.previous != parent.header;</span>
+        }
+
+        @Override
+        public E next() {
+<span class="fc" id="L167">            checkModCount();</span>
+<span class="fc bfc" id="L168" title="All 2 branches covered.">            if (!hasNext()) {</span>
+<span class="fc" id="L169">                throw new NoSuchElementException(&quot;No element at index &quot; + nextIndex + &quot;.&quot;);</span>
+            }
+<span class="fc" id="L171">            final E value = next.getValue();</span>
+<span class="fc" id="L172">            current = next;</span>
+<span class="fc" id="L173">            next = next.next;</span>
+<span class="fc" id="L174">            nextIndex++;</span>
+<span class="fc" id="L175">            return value;</span>
+        }
+
+        @Override
+        public int nextIndex() {
+<span class="fc" id="L180">            return nextIndex;</span>
+        }
+
+        @Override
+        public E previous() {
+<span class="fc" id="L185">            checkModCount();</span>
+<span class="fc bfc" id="L186" title="All 2 branches covered.">            if (!hasPrevious()) {</span>
+<span class="fc" id="L187">                throw new NoSuchElementException(&quot;Already at start of list.&quot;);</span>
+            }
+<span class="fc" id="L189">            next = next.previous;</span>
+<span class="fc" id="L190">            final E value = next.getValue();</span>
+<span class="fc" id="L191">            current = next;</span>
+<span class="fc" id="L192">            nextIndex--;</span>
+<span class="fc" id="L193">            return value;</span>
+        }
+
+        @Override
+        public int previousIndex() {
+            // not normally overridden, as relative to nextIndex()
+<span class="fc" id="L199">            return nextIndex() - 1;</span>
+        }
+
+        @Override
+        public void remove() {
+<span class="fc" id="L204">            checkModCount();</span>
+<span class="fc bfc" id="L205" title="All 2 branches covered.">            if (current == next) {</span>
+                // remove() following previous()
+<span class="fc" id="L207">                next = next.next;</span>
+<span class="fc" id="L208">                parent.removeNode(getLastNodeReturned());</span>
+            } else {
+                // remove() following next()
+<span class="fc" id="L211">                parent.removeNode(getLastNodeReturned());</span>
+<span class="fc" id="L212">                nextIndex--;</span>
+            }
+<span class="fc" id="L214">            current = null;</span>
+<span class="fc" id="L215">            expectedModCount++;</span>
+<span class="fc" id="L216">        }</span>
+
+        @Override
+        public void set(final E obj) {
+<span class="fc" id="L220">            checkModCount();</span>
+<span class="fc" id="L221">            getLastNodeReturned().setValue(obj);</span>
+<span class="fc" id="L222">        }</span>
+
+    }
+
+    /**
+     * The sublist implementation for AbstractLinkedListJava21.
+     *
+     * @param &lt;E&gt; The type of elements in this list.
+     */
+    protected static class LinkedSubList&lt;E&gt; extends AbstractList&lt;E&gt; {
+
+        /** The main list */
+        AbstractLinkedListJava21&lt;E&gt; parent;
+
+        /** Offset from the main list */
+        int offset;
+
+        /** Sublist size */
+        int size;
+
+        /** Sublist modCount */
+        int expectedModCount;
+
+        /**
+         * Constructs a new instance.
+         *
+         * @param parent The parent AbstractLinkedList.
+         * @param fromIndex An index greater or equal to 0 and less than {@code toIndex}.
+         * @param toIndex An index greater than {@code fromIndex}.
+         */
+<span class="fc" id="L252">        protected LinkedSubList(final AbstractLinkedListJava21&lt;E&gt; parent, final int fromIndex, final int toIndex) {</span>
+<span class="pc bpc" id="L253" title="1 of 2 branches missed.">            if (fromIndex &lt; 0) {</span>
+<span class="nc" id="L254">                throw new IndexOutOfBoundsException(&quot;fromIndex = &quot; + fromIndex);</span>
+            }
+<span class="pc bpc" id="L256" title="1 of 2 branches missed.">            if (toIndex &gt; parent.size()) {</span>
+<span class="nc" id="L257">                throw new IndexOutOfBoundsException(&quot;toIndex = &quot; + toIndex);</span>
+            }
+<span class="pc bpc" id="L259" title="1 of 2 branches missed.">            if (fromIndex &gt; toIndex) {</span>
+<span class="nc" id="L260">                throw new IllegalArgumentException(&quot;fromIndex(&quot; + fromIndex + &quot;) &gt; toIndex(&quot; + toIndex + &quot;)&quot;);</span>
+            }
+<span class="fc" id="L262">            this.parent = parent;</span>
+<span class="fc" id="L263">            this.offset = fromIndex;</span>
+<span class="fc" id="L264">            this.size = toIndex - fromIndex;</span>
+<span class="fc" id="L265">            this.expectedModCount = parent.modCount;</span>
+<span class="fc" id="L266">        }</span>
+
+        @Override
+        public void add(final int index, final E obj) {
+<span class="fc" id="L270">            rangeCheck(index, size + 1);</span>
+<span class="fc" id="L271">            checkModCount();</span>
+<span class="fc" id="L272">            parent.add(index + offset, obj);</span>
+<span class="fc" id="L273">            expectedModCount = parent.modCount;</span>
+<span class="fc" id="L274">            size++;</span>
+<span class="fc" id="L275">            modCount++;</span>
+<span class="fc" id="L276">        }</span>
+
+        @Override
+        public boolean addAll(final Collection&lt;? extends E&gt; coll) {
+<span class="nc" id="L280">            return addAll(size, coll);</span>
+        }
+
+        @Override
+        public boolean addAll(final int index, final Collection&lt;? extends E&gt; coll) {
+<span class="nc" id="L285">            rangeCheck(index, size + 1);</span>
+<span class="nc" id="L286">            final int cSize = coll.size();</span>
+<span class="nc bnc" id="L287" title="All 2 branches missed.">            if (cSize == 0) {</span>
+<span class="nc" id="L288">                return false;</span>
+            }
+
+<span class="nc" id="L291">            checkModCount();</span>
+<span class="nc" id="L292">            parent.addAll(offset + index, coll);</span>
+<span class="nc" id="L293">            expectedModCount = parent.modCount;</span>
+<span class="nc" id="L294">            size += cSize;</span>
+<span class="nc" id="L295">            modCount++;</span>
+<span class="nc" id="L296">            return true;</span>
+        }
+
+        /**
+         * Throws a {@link ConcurrentModificationException} if this instance fails its concurrency check.
+         */
+        protected void checkModCount() {
+<span class="pc bpc" id="L303" title="1 of 2 branches missed.">            if (parent.modCount != expectedModCount) {</span>
+<span class="nc" id="L304">                throw new ConcurrentModificationException();</span>
+            }
+<span class="fc" id="L306">        }</span>
+
+        @Override
+        public void clear() {
+<span class="fc" id="L310">            checkModCount();</span>
+<span class="fc" id="L311">            final Iterator&lt;E&gt; it = iterator();</span>
+<span class="fc bfc" id="L312" title="All 2 branches covered.">            while (it.hasNext()) {</span>
+<span class="fc" id="L313">                it.next();</span>
+<span class="fc" id="L314">                it.remove();</span>
+            }
+<span class="fc" id="L316">        }</span>
+
+        @Override
+        public E get(final int index) {
+<span class="nc" id="L320">            rangeCheck(index, size);</span>
+<span class="nc" id="L321">            checkModCount();</span>
+<span class="nc" id="L322">            return parent.get(index + offset);</span>
+        }
+
+        @Override
+        public Iterator&lt;E&gt; iterator() {
+<span class="fc" id="L327">            checkModCount();</span>
+<span class="fc" id="L328">            return parent.createSubListIterator(this);</span>
+        }
+
+        @Override
+        public ListIterator&lt;E&gt; listIterator(final int index) {
+<span class="nc" id="L333">            rangeCheck(index, size + 1);</span>
+<span class="nc" id="L334">            checkModCount();</span>
+<span class="nc" id="L335">            return parent.createSubListListIterator(this, index);</span>
+        }
+
+        /**
+         * Throws an {@link IndexOutOfBoundsException} if the given indices are out of bounds.
+         *
+         * @param index lower index.
+         * @param beyond upper index.
+         */
+        protected void rangeCheck(final int index, final int beyond) {
+<span class="pc bpc" id="L345" title="2 of 4 branches missed.">            if (index &lt; 0 || index &gt;= beyond) {</span>
+<span class="nc" id="L346">                throw new IndexOutOfBoundsException(&quot;Index '&quot; + index + &quot;' out of bounds for size '&quot; + size + &quot;'&quot;);</span>
+            }
+<span class="fc" id="L348">        }</span>
+
+        @Override
+        public E remove(final int index) {
+<span class="fc" id="L352">            rangeCheck(index, size);</span>
+<span class="fc" id="L353">            checkModCount();</span>
+<span class="fc" id="L354">            final E result = parent.remove(index + offset);</span>
+<span class="fc" id="L355">            expectedModCount = parent.modCount;</span>
+<span class="fc" id="L356">            size--;</span>
+<span class="fc" id="L357">            modCount++;</span>
+<span class="fc" id="L358">            return result;</span>
+        }
+
+        @Override
+        public E set(final int index, final E obj) {
+<span class="nc" id="L363">            rangeCheck(index, size);</span>
+<span class="nc" id="L364">            checkModCount();</span>
+<span class="nc" id="L365">            return parent.set(index + offset, obj);</span>
+        }
+
+        @Override
+        public int size() {
+<span class="fc" id="L370">            checkModCount();</span>
+<span class="fc" id="L371">            return size;</span>
+        }
+
+        @Override
+        public List&lt;E&gt; subList(final int fromIndexInclusive, final int toIndexExclusive) {
+<span class="nc" id="L376">            return new LinkedSubList&lt;&gt;(parent, fromIndexInclusive + offset, toIndexExclusive + offset);</span>
+        }
+    }
+
+    /**
+     * A list iterator over the linked sub list.
+     *
+     * @param &lt;E&gt; The type of elements in this iterator.
+     */
+    protected static class LinkedSubListIterator&lt;E&gt; extends LinkedListIterator&lt;E&gt; {
+
+        /** The sub list */
+        protected final LinkedSubList&lt;E&gt; sub;
+
+        /**
+         * Constructs a new instance.
+         *
+         * @param sub The sub-list.
+         * @param startIndex The starting index.
+         */
+        protected LinkedSubListIterator(final LinkedSubList&lt;E&gt; sub, final int startIndex) {
+<span class="fc" id="L397">            super(sub.parent, startIndex + sub.offset);</span>
+<span class="fc" id="L398">            this.sub = sub;</span>
+<span class="fc" id="L399">        }</span>
+
+        @Override
+        public void add(final E obj) {
+<span class="nc" id="L403">            super.add(obj);</span>
+<span class="nc" id="L404">            sub.expectedModCount = parent.modCount;</span>
+<span class="nc" id="L405">            sub.size++;</span>
+<span class="nc" id="L406">        }</span>
+
+        @Override
+        public boolean hasNext() {
+<span class="fc bfc" id="L410" title="All 2 branches covered.">            return nextIndex() &lt; sub.size;</span>
+        }
+
+        @Override
+        public boolean hasPrevious() {
+<span class="nc bnc" id="L415" title="All 2 branches missed.">            return previousIndex() &gt;= 0;</span>
+        }
+
+        @Override
+        public int nextIndex() {
+<span class="fc" id="L420">            return super.nextIndex() - sub.offset;</span>
+        }
+
+        @Override
+        public void remove() {
+<span class="fc" id="L425">            super.remove();</span>
+<span class="fc" id="L426">            sub.expectedModCount = parent.modCount;</span>
+<span class="fc" id="L427">            sub.size--;</span>
+<span class="fc" id="L428">        }</span>
+    }
+
+    /**
+     * A node within the linked list.
+     * &lt;p&gt;
+     * From Commons Collections 3.1, all access to the {@code value} property
+     * is via the methods on this class.
+     * &lt;/p&gt;
+     *
+     * @param &lt;E&gt; The type of the node value.
+     */
+    protected static class Node&lt;E&gt; {
+
+        /** A pointer to the node before this node */
+        protected Node&lt;E&gt; previous;
+
+        /** A pointer to the node after this node */
+        protected Node&lt;E&gt; next;
+
+        /** The object contained within this node */
+        protected E value;
+
+        /**
+         * Constructs a new header node.
+         */
+<span class="fc" id="L454">        protected Node() {</span>
+<span class="fc" id="L455">            previous = this;</span>
+<span class="fc" id="L456">            next = this;</span>
+<span class="fc" id="L457">        }</span>
+
+        /**
+         * Constructs a new node.
+         *
+         * @param value  The value to store
+         */
+<span class="fc" id="L464">        protected Node(final E value) {</span>
+<span class="fc" id="L465">            this.value = value;</span>
+<span class="fc" id="L466">        }</span>
+
+        /**
+         * Constructs a new node.
+         *
+         * @param previous  The previous node in the list
+         * @param next  The next node in the list
+         * @param value  The value to store
+         */
+<span class="nc" id="L475">        protected Node(final Node&lt;E&gt; previous, final Node&lt;E&gt; next, final E value) {</span>
+<span class="nc" id="L476">            this.previous = previous;</span>
+<span class="nc" id="L477">            this.next = next;</span>
+<span class="nc" id="L478">            this.value = value;</span>
+<span class="nc" id="L479">        }</span>
+
+        /**
+         * Gets the next node.
+         *
+         * @return The next node
+         * @since 3.1
+         */
+        protected Node&lt;E&gt; getNextNode() {
+<span class="nc" id="L488">            return next;</span>
+        }
+
+        /**
+         * Gets the previous node.
+         *
+         * @return The previous node
+         * @since 3.1
+         */
+        protected Node&lt;E&gt; getPreviousNode() {
+<span class="nc" id="L498">            return previous;</span>
+        }
+
+        /**
+         * Gets the value of the node.
+         *
+         * @return The value
+         * @since 3.1
+         */
+        protected E getValue() {
+<span class="fc" id="L508">            return value;</span>
+        }
+
+        /**
+         * Sets the next node.
+         *
+         * @param next  The next node
+         * @since 3.1
+         */
+        protected void setNextNode(final Node&lt;E&gt; next) {
+<span class="nc" id="L518">            this.next = next;</span>
+<span class="nc" id="L519">        }</span>
+
+        /**
+         * Sets the previous node.
+         *
+         * @param previous  The previous node
+         * @since 3.1
+         */
+        protected void setPreviousNode(final Node&lt;E&gt; previous) {
+<span class="nc" id="L528">            this.previous = previous;</span>
+<span class="nc" id="L529">        }</span>
+
+        /**
+         * Sets the value of the node.
+         *
+         * @param value  The value
+         * @since 3.1
+         */
+        protected void setValue(final E value) {
+<span class="fc" id="L538">            this.value = value;</span>
+<span class="fc" id="L539">        }</span>
+    }
+
+    /**
+     * A {@link Node} which indicates the start and end of the list and does not
+     * hold a value. The value of {@code next} is the first item in the
+     * list. The value of {@code previous} is the last item in the list.
+     */
+    transient Node&lt;E&gt; header;
+
+    /** The size of the list */
+    transient int size;
+
+    /** Modification count for iterators */
+    transient int modCount;
+
+    /**
+     * Constructor that does nothing (intended for deserialization).
+     * &lt;p&gt;
+     * If this constructor is used by a serializable subclass then the init()
+     * method must be called.
+     * &lt;/p&gt;
+     */
+<span class="fc" id="L562">    protected AbstractLinkedListJava21() {</span>
+<span class="fc" id="L563">    }</span>
+
+    /**
+     * Constructs a list copying data from the specified collection.
+     *
+     * @param coll  The collection to copy
+     */
+<span class="nc" id="L570">    protected AbstractLinkedListJava21(final Collection&lt;? extends E&gt; coll) {</span>
+<span class="nc" id="L571">        init();</span>
+<span class="nc" id="L572">        addAll(coll);</span>
+<span class="nc" id="L573">    }</span>
+
+    @Override
+    public boolean add(final E value) {
+<span class="fc" id="L577">        addLast(value);</span>
+<span class="fc" id="L578">        return true;</span>
+    }
+
+    @Override
+    public void add(final int index, final E value) {
+<span class="fc" id="L583">        final Node&lt;E&gt; node = getNode(index, true);</span>
+<span class="fc" id="L584">        addNodeBefore(node, value);</span>
+<span class="fc" id="L585">    }</span>
+
+    @Override
+    public boolean addAll(final Collection&lt;? extends E&gt; coll) {
+<span class="fc" id="L589">        return addAll(size, coll);</span>
+    }
+
+    @Override
+    public boolean addAll(final int index, final Collection&lt;? extends E&gt; coll) {
+<span class="fc" id="L594">        final Node&lt;E&gt; node = getNode(index, true);</span>
+<span class="fc bfc" id="L595" title="All 2 branches covered.">        if (coll.isEmpty()) {</span>
+<span class="fc" id="L596">            return false;</span>
+        }
+<span class="fc bfc" id="L598" title="All 2 branches covered.">        for (final E e : coll) {</span>
+<span class="fc" id="L599">            addNodeBefore(node, e);</span>
+<span class="fc" id="L600">        }</span>
+<span class="fc" id="L601">        return true;</span>
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public void addFirst(final E o) {
+<span class="fc" id="L608">        addNodeAfter(header, o);</span>
+<span class="fc" id="L609">    }</span>
+
+    /**
+     * {@inheritDoc}
+     */
+    public void addLast(final E o) {
+<span class="fc" id="L615">        addNodeBefore(header, o);</span>
+<span class="fc" id="L616">    }</span>
+
+    /**
+     * Inserts a new node into the list.
+     *
+     * @param nodeToInsert  new node to insert
+     * @param insertBeforeNode  node to insert before
+     * @throws NullPointerException if either node is null
+     */
+    protected void addNode(final Node&lt;E&gt; nodeToInsert, final Node&lt;E&gt; insertBeforeNode) {
+<span class="fc" id="L626">        Objects.requireNonNull(nodeToInsert, &quot;nodeToInsert&quot;);</span>
+<span class="fc" id="L627">        Objects.requireNonNull(insertBeforeNode, &quot;insertBeforeNode&quot;);</span>
+<span class="fc" id="L628">        nodeToInsert.next = insertBeforeNode;</span>
+<span class="fc" id="L629">        nodeToInsert.previous = insertBeforeNode.previous;</span>
+<span class="fc" id="L630">        insertBeforeNode.previous.next = nodeToInsert;</span>
+<span class="fc" id="L631">        insertBeforeNode.previous = nodeToInsert;</span>
+<span class="fc" id="L632">        size++;</span>
+<span class="fc" id="L633">        modCount++;</span>
+<span class="fc" id="L634">    }</span>
+
+    /**
+     * Creates a new node with the specified object as its
+     * {@code value} and inserts it after {@code node}.
+     * &lt;p&gt;
+     * This implementation uses {@link #createNode(Object)} and
+     * {@link #addNode(AbstractLinkedListJava21.Node,AbstractLinkedListJava21.Node)}.
+     * &lt;/p&gt;
+     *
+     * @param node  node to insert after
+     * @param value  value of the newly added node
+     * @throws NullPointerException if {@code node} is null
+     */
+    protected void addNodeAfter(final Node&lt;E&gt; node, final E value) {
+<span class="fc" id="L649">        final Node&lt;E&gt; newNode = createNode(value);</span>
+<span class="fc" id="L650">        addNode(newNode, node.next);</span>
+<span class="fc" id="L651">    }</span>
+
+    /**
+     * Creates a new node with the specified object as its
+     * {@code value} and inserts it before {@code node}.
+     * &lt;p&gt;
+     * This implementation uses {@link #createNode(Object)} and
+     * {@link #addNode(AbstractLinkedListJava21.Node,AbstractLinkedListJava21.Node)}.
+     * &lt;/p&gt;
+     *
+     * @param node  node to insert before
+     * @param value  value of the newly added node
+     * @throws NullPointerException if {@code node} is null
+     */
+    protected void addNodeBefore(final Node&lt;E&gt; node, final E value) {
+<span class="fc" id="L666">        final Node&lt;E&gt; newNode = createNode(value);</span>
+<span class="fc" id="L667">        addNode(newNode, node);</span>
+<span class="fc" id="L668">    }</span>
+
+    @Override
+    public void clear() {
+<span class="fc" id="L672">        removeAllNodes();</span>
+<span class="fc" id="L673">    }</span>
+
+    @Override
+    public boolean contains(final Object value) {
+<span class="fc bfc" id="L677" title="All 2 branches covered.">        return indexOf(value) != -1;</span>
+    }
+
+    @Override
+    public boolean containsAll(final Collection&lt;?&gt; coll) {
+<span class="fc bfc" id="L682" title="All 2 branches covered.">        for (final Object o : coll) {</span>
+<span class="fc bfc" id="L683" title="All 2 branches covered.">            if (!contains(o)) {</span>
+<span class="fc" id="L684">                return false;</span>
+            }
+<span class="fc" id="L686">        }</span>
+<span class="fc" id="L687">        return true;</span>
+    }
+
+    /**
+     * Creates a new node with previous, next and element all set to null.
+     * This implementation creates a new empty Node.
+     * Subclasses can override this to create a different class.
+     *
+     * @return  newly created node
+     */
+    protected Node&lt;E&gt; createHeaderNode() {
+<span class="fc" id="L698">        return new Node&lt;&gt;();</span>
+    }
+
+    /**
+     * Creates a new node with the specified properties.
+     * This implementation creates a new Node with data.
+     * Subclasses can override this to create a different class.
+     *
+     * @param value  value of the new node
+     * @return A new node containing the value
+     */
+    protected Node&lt;E&gt; createNode(final E value) {
+<span class="fc" id="L710">        return new Node&lt;&gt;(value);</span>
+    }
+
+    /**
+     * Creates an iterator for the sublist.
+     *
+     * @param subList  The sublist to get an iterator for
+     * @return A new iterator on the given sublist
+     */
+    protected Iterator&lt;E&gt; createSubListIterator(final LinkedSubList&lt;E&gt; subList) {
+<span class="fc" id="L720">        return createSubListListIterator(subList, 0);</span>
+    }
+
+    /**
+     * Creates a list iterator for the sublist.
+     *
+     * @param subList  The sublist to get an iterator for
+     * @param fromIndex  The index to start from, relative to the sublist
+     * @return A new list iterator on the given sublist
+     */
+    protected ListIterator&lt;E&gt; createSubListListIterator(final LinkedSubList&lt;E&gt; subList, final int fromIndex) {
+<span class="fc" id="L731">        return new LinkedSubListIterator&lt;&gt;(subList, fromIndex);</span>
+    }
+
+    /**
+     * Deserializes the data held in this object to the stream specified.
+     * &lt;p&gt;
+     * The first serializable subclass must call this method from
+     * {@code readObject}.
+     * &lt;/p&gt;
+     *
+     * @param inputStream  The stream to read the object from
+     * @throws IOException  if any error occurs while reading from the stream
+     * @throws ClassNotFoundException  if a class read from the stream cannot be loaded
+     */
+    @SuppressWarnings(&quot;unchecked&quot;)
+    protected void doReadObject(final ObjectInputStream inputStream) throws IOException, ClassNotFoundException {
+<span class="nc" id="L747">        init();</span>
+<span class="nc" id="L748">        final int size = inputStream.readInt();</span>
+<span class="nc bnc" id="L749" title="All 2 branches missed.">        for (int i = 0; i &lt; size; i++) {</span>
+<span class="nc" id="L750">            add((E) inputStream.readObject());</span>
+        }
+<span class="nc" id="L752">    }</span>
+
+    /**
+     * Serializes the data held in this object to the stream specified.
+     * &lt;p&gt;
+     * The first serializable subclass must call this method from
+     * {@code writeObject}.
+     * &lt;/p&gt;
+     *
+     * @param outputStream  The stream to write the object to
+     * @throws IOException  if anything goes wrong
+     */
+    protected void doWriteObject(final ObjectOutputStream outputStream) throws IOException {
+        // Write the size so we know how many nodes to read back
+<span class="nc" id="L766">        outputStream.writeInt(size());</span>
+<span class="nc bnc" id="L767" title="All 2 branches missed.">        for (final E e : this) {</span>
+<span class="nc" id="L768">            outputStream.writeObject(e);</span>
+<span class="nc" id="L769">        }</span>
+<span class="nc" id="L770">    }</span>
+
+    @Override
+    public boolean equals(final Object obj) {
+<span class="fc bfc" id="L774" title="All 2 branches covered.">        if (obj == this) {</span>
+<span class="fc" id="L775">            return true;</span>
+        }
+<span class="fc bfc" id="L777" title="All 2 branches covered.">        if (!(obj instanceof List)) {</span>
+<span class="fc" id="L778">            return false;</span>
+        }
+<span class="fc" id="L780">        final List&lt;?&gt; other = (List&lt;?&gt;) obj;</span>
+<span class="fc bfc" id="L781" title="All 2 branches covered.">        if (other.size() != size()) {</span>
+<span class="fc" id="L782">            return false;</span>
+        }
+<span class="fc" id="L784">        final ListIterator&lt;?&gt; it1 = listIterator();</span>
+<span class="fc" id="L785">        final ListIterator&lt;?&gt; it2 = other.listIterator();</span>
+<span class="pc bpc" id="L786" title="1 of 4 branches missed.">        while (it1.hasNext() &amp;&amp; it2.hasNext()) {</span>
+<span class="fc bfc" id="L787" title="All 2 branches covered.">            if (!Objects.equals(it1.next(), it2.next())) {</span>
+<span class="fc" id="L788">                return false;</span>
+            }
+        }
+<span class="pc bpc" id="L791" title="2 of 4 branches missed.">        return !(it1.hasNext() || it2.hasNext());</span>
+    }
+
+    @Override
+    public E get(final int index) {
+<span class="fc" id="L796">        final Node&lt;E&gt; node = getNode(index, false);</span>
+<span class="fc" id="L797">        return node.getValue();</span>
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public E getFirst() {
+<span class="fc" id="L804">        final Node&lt;E&gt; node = header.next;</span>
+<span class="pc bpc" id="L805" title="1 of 2 branches missed.">        if (node == header) {</span>
+<span class="nc" id="L806">            throw new NoSuchElementException();</span>
+        }
+<span class="fc" id="L808">        return node.getValue();</span>
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public E getLast() {
+<span class="fc" id="L815">        final Node&lt;E&gt; node = header.previous;</span>
+<span class="pc bpc" id="L816" title="1 of 2 branches missed.">        if (node == header) {</span>
+<span class="nc" id="L817">            throw new NoSuchElementException();</span>
+        }
+<span class="fc" id="L819">        return node.getValue();</span>
+    }
+
+    /**
+     * Gets the node at a particular index.
+     *
+     * @param index  The index, starting from 0
+     * @param endMarkerAllowed  whether or not the end marker can be returned if
+     * startIndex is set to the list's size
+     * @return The node at the given index
+     * @throws IndexOutOfBoundsException if the index is less than 0; equal to
+     * the size of the list and endMakerAllowed is false; or greater than the
+     * size of the list
+     */
+    protected Node&lt;E&gt; getNode(final int index, final boolean endMarkerAllowed) throws IndexOutOfBoundsException {
+        // Check the index is within the bounds
+<span class="fc bfc" id="L835" title="All 2 branches covered.">        if (index &lt; 0) {</span>
+<span class="fc" id="L836">            throw new IndexOutOfBoundsException(&quot;Couldn't get the node: &quot; +</span>
+                    &quot;index (&quot; + index + &quot;) less than zero.&quot;);
+        }
+<span class="fc bfc" id="L839" title="All 4 branches covered.">        if (!endMarkerAllowed &amp;&amp; index == size) {</span>
+<span class="fc" id="L840">            throw new IndexOutOfBoundsException(&quot;Couldn't get the node: &quot; +</span>
+                    &quot;index (&quot; + index + &quot;) is the size of the list.&quot;);
+        }
+<span class="fc bfc" id="L843" title="All 2 branches covered.">        if (index &gt; size) {</span>
+<span class="fc" id="L844">            throw new IndexOutOfBoundsException(&quot;Couldn't get the node: &quot; +</span>
+                    &quot;index (&quot; + index + &quot;) greater than the size of the &quot; +
+                    &quot;list (&quot; + size + &quot;).&quot;);
+        }
+        // Search the list and get the node
+        Node&lt;E&gt; node;
+<span class="fc bfc" id="L850" title="All 2 branches covered.">        if (index &lt; size / 2) {</span>
+            // Search forwards
+<span class="fc" id="L852">            node = header.next;</span>
+<span class="fc bfc" id="L853" title="All 2 branches covered.">            for (int currentIndex = 0; currentIndex &lt; index; currentIndex++) {</span>
+<span class="fc" id="L854">                node = node.next;</span>
+            }
+        } else {
+            // Search backwards
+<span class="fc" id="L858">            node = header;</span>
+<span class="fc bfc" id="L859" title="All 2 branches covered.">            for (int currentIndex = size; currentIndex &gt; index; currentIndex--) {</span>
+<span class="fc" id="L860">                node = node.previous;</span>
+            }
+        }
+<span class="fc" id="L863">        return node;</span>
+    }
+
+    @Override
+    public int hashCode() {
+<span class="fc" id="L868">        int hashCode = 1;</span>
+<span class="fc bfc" id="L869" title="All 2 branches covered.">        for (final E e : this) {</span>
+<span class="fc bfc" id="L870" title="All 2 branches covered.">            hashCode = 31 * hashCode + (e == null ? 0 : e.hashCode());</span>
+<span class="fc" id="L871">        }</span>
+<span class="fc" id="L872">        return hashCode;</span>
+    }
+
+    @Override
+    public int indexOf(final Object value) {
+<span class="fc" id="L877">        int i = 0;</span>
+<span class="fc bfc" id="L878" title="All 2 branches covered.">        for (Node&lt;E&gt; node = header.next; node != header; node = node.next) {</span>
+<span class="fc bfc" id="L879" title="All 2 branches covered.">            if (isEqualValue(node.getValue(), value)) {</span>
+<span class="fc" id="L880">                return i;</span>
+            }
+<span class="fc" id="L882">            i++;</span>
+        }
+<span class="fc" id="L884">        return CollectionUtils.INDEX_NOT_FOUND;</span>
+    }
+
+    /**
+     * The equivalent of a default constructor, broken out so it can be called
+     * by any constructor and by {@code readObject}.
+     * Subclasses which override this method should make sure they call super,
+     * so the list is initialized properly.
+     */
+    protected void init() {
+<span class="fc" id="L894">        header = createHeaderNode();</span>
+<span class="fc" id="L895">    }</span>
+
+    @Override
+    public boolean isEmpty() {
+<span class="fc bfc" id="L899" title="All 2 branches covered.">        return size() == 0;</span>
+    }
+
+    /**
+     * Compares two values for equals.
+     * This implementation uses the equals method.
+     * Subclasses can override this to match differently.
+     *
+     * @param value1  The first value to compare, may be null
+     * @param value2  The second value to compare, may be null
+     * @return true if equal
+     */
+    protected boolean isEqualValue(final Object value1, final Object value2) {
+<span class="fc" id="L912">        return Objects.equals(value1, value2);</span>
+    }
+
+    @Override
+    public Iterator&lt;E&gt; iterator() {
+<span class="fc" id="L917">        return listIterator();</span>
+    }
+
+    @Override
+    public int lastIndexOf(final Object value) {
+<span class="fc" id="L922">        int i = size - 1;</span>
+<span class="fc bfc" id="L923" title="All 2 branches covered.">        for (Node&lt;E&gt; node = header.previous; node != header; node = node.previous) {</span>
+<span class="fc bfc" id="L924" title="All 2 branches covered.">            if (isEqualValue(node.getValue(), value)) {</span>
+<span class="fc" id="L925">                return i;</span>
+            }
+<span class="fc" id="L927">            i--;</span>
+        }
+<span class="fc" id="L929">        return CollectionUtils.INDEX_NOT_FOUND;</span>
+    }
+
+    @Override
+    public ListIterator&lt;E&gt; listIterator() {
+<span class="fc" id="L934">        return new LinkedListIterator&lt;&gt;(this, 0);</span>
+    }
+
+    @Override
+    public ListIterator&lt;E&gt; listIterator(final int fromIndex) {
+<span class="fc" id="L939">        return new LinkedListIterator&lt;&gt;(this, fromIndex);</span>
+    }
+
+    @Override
+    public E remove(final int index) {
+<span class="fc" id="L944">        final Node&lt;E&gt; node = getNode(index, false);</span>
+<span class="fc" id="L945">        final E oldValue = node.getValue();</span>
+<span class="fc" id="L946">        removeNode(node);</span>
+<span class="fc" id="L947">        return oldValue;</span>
+    }
+
+    @Override
+    public boolean remove(final Object value) {
+<span class="fc bfc" id="L952" title="All 2 branches covered.">        for (Node&lt;E&gt; node = header.next; node != header; node = node.next) {</span>
+<span class="fc bfc" id="L953" title="All 2 branches covered.">            if (isEqualValue(node.getValue(), value)) {</span>
+<span class="fc" id="L954">                removeNode(node);</span>
+<span class="fc" id="L955">                return true;</span>
+            }
+        }
+<span class="fc" id="L958">        return false;</span>
+    }
+
+    /**
+     * {@inheritDoc}
+     * &lt;p&gt;
+     * This implementation iterates over the elements of this list, checking each element in
+     * turn to see if it's contained in {@code coll}. If it's contained, it's removed
+     * from this list. As a consequence, it is advised to use a collection type for
+     * {@code coll} that provides a fast (for example O(1)) implementation of
+     * {@link Collection#contains(Object)}.
+     * &lt;/p&gt;
+     */
+    @Override
+    public boolean removeAll(final Collection&lt;?&gt; coll) {
+<span class="fc" id="L973">        boolean modified = false;</span>
+<span class="fc" id="L974">        final Iterator&lt;E&gt; it = iterator();</span>
+<span class="fc bfc" id="L975" title="All 2 branches covered.">        while (it.hasNext()) {</span>
+<span class="fc bfc" id="L976" title="All 2 branches covered.">            if (coll.contains(it.next())) {</span>
+<span class="fc" id="L977">                it.remove();</span>
+<span class="fc" id="L978">                modified = true;</span>
+            }
+        }
+<span class="fc" id="L981">        return modified;</span>
+    }
+
+    /**
+     * Removes all nodes by resetting the circular list marker.
+     */
+    protected void removeAllNodes() {
+<span class="fc" id="L988">        header.next = header;</span>
+<span class="fc" id="L989">        header.previous = header;</span>
+<span class="fc" id="L990">        size = 0;</span>
+<span class="fc" id="L991">        modCount++;</span>
+<span class="fc" id="L992">    }</span>
+
+    /**
+     * {@inheritDoc}
+     */
+    public E removeFirst() {
+<span class="fc" id="L998">        final Node&lt;E&gt; node = header.next;</span>
+<span class="pc bpc" id="L999" title="1 of 2 branches missed.">        if (node == header) {</span>
+<span class="nc" id="L1000">            throw new NoSuchElementException();</span>
+        }
+<span class="fc" id="L1002">        final E oldValue = node.getValue();</span>
+<span class="fc" id="L1003">        removeNode(node);</span>
+<span class="fc" id="L1004">        return oldValue;</span>
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public E removeLast() {
+<span class="fc" id="L1011">        final Node&lt;E&gt; node = header.previous;</span>
+<span class="pc bpc" id="L1012" title="1 of 2 branches missed.">        if (node == header) {</span>
+<span class="nc" id="L1013">            throw new NoSuchElementException();</span>
+        }
+<span class="fc" id="L1015">        final E oldValue = node.getValue();</span>
+<span class="fc" id="L1016">        removeNode(node);</span>
+<span class="fc" id="L1017">        return oldValue;</span>
+    }
+
+    /**
+     * Removes the specified node from the list.
+     *
+     * @param node  The node to remove
+     * @throws NullPointerException if {@code node} is null
+     */
+    protected void removeNode(final Node&lt;E&gt; node) {
+<span class="fc" id="L1027">        Objects.requireNonNull(node, &quot;node&quot;);</span>
+<span class="fc" id="L1028">        node.previous.next = node.next;</span>
+<span class="fc" id="L1029">        node.next.previous = node.previous;</span>
+<span class="fc" id="L1030">        size--;</span>
+<span class="fc" id="L1031">        modCount++;</span>
+<span class="fc" id="L1032">    }</span>
+
+    /**
+     * {@inheritDoc}
+     * &lt;p&gt;
+     * This implementation iterates over the elements of this list, checking each element in
+     * turn to see if it's contained in {@code coll}. If it's not contained, it's removed
+     * from this list. As a consequence, it is advised to use a collection type for
+     * {@code coll} that provides a fast (for example O(1)) implementation of
+     * {@link Collection#contains(Object)}.
+     * &lt;/p&gt;
+     */
+    @Override
+    public boolean retainAll(final Collection&lt;?&gt; coll) {
+<span class="fc" id="L1046">        boolean modified = false;</span>
+<span class="fc" id="L1047">        final Iterator&lt;E&gt; it = iterator();</span>
+<span class="fc bfc" id="L1048" title="All 2 branches covered.">        while (it.hasNext()) {</span>
+<span class="fc bfc" id="L1049" title="All 2 branches covered.">            if (!coll.contains(it.next())) {</span>
+<span class="fc" id="L1050">                it.remove();</span>
+<span class="fc" id="L1051">                modified = true;</span>
+            }
+        }
+<span class="fc" id="L1054">        return modified;</span>
+    }
+
+    @Override
+    public E set(final int index, final E value) {
+<span class="fc" id="L1059">        final Node&lt;E&gt; node = getNode(index, false);</span>
+<span class="fc" id="L1060">        final E oldValue = node.getValue();</span>
+<span class="fc" id="L1061">        updateNode(node, value);</span>
+<span class="fc" id="L1062">        return oldValue;</span>
+    }
+
+    @Override
+    public int size() {
+<span class="fc" id="L1067">        return size;</span>
+    }
+
+    /**
+     * Gets a sublist of the main list.
+     *
+     * @param fromIndexInclusive  The index to start from
+     * @param toIndexExclusive  The index to end at
+     * @return The new sublist
+     */
+    @Override
+    public List&lt;E&gt; subList(final int fromIndexInclusive, final int toIndexExclusive) {
+<span class="fc" id="L1079">        return new LinkedSubList&lt;&gt;(this, fromIndexInclusive, toIndexExclusive);</span>
+    }
+
+    @Override
+    public Object[] toArray() {
+<span class="fc" id="L1084">        return toArray(new Object[size]);</span>
+    }
+
+    @Override
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public &lt;T&gt; T[] toArray(T[] array) {
+        // Extend the array if needed
+<span class="fc bfc" id="L1091" title="All 2 branches covered.">        if (array.length &lt; size) {</span>
+<span class="fc" id="L1092">            final Class&lt;?&gt; componentType = array.getClass().getComponentType();</span>
+<span class="fc" id="L1093">            array = (T[]) Array.newInstance(componentType, size);</span>
+        }
+        // Copy the values into the array
+<span class="fc" id="L1096">        int i = 0;</span>
+<span class="fc bfc" id="L1097" title="All 2 branches covered.">        for (Node&lt;E&gt; node = header.next; node != header; node = node.next, i++) {</span>
+<span class="fc" id="L1098">            array[i] = (T) node.getValue();</span>
+        }
+        // Set the value after the last value to null
+<span class="fc bfc" id="L1101" title="All 2 branches covered.">        if (array.length &gt; size) {</span>
+<span class="fc" id="L1102">            array[size] = null;</span>
+        }
+<span class="fc" id="L1104">        return array;</span>
+    }
+
+    @Override
+    public String toString() {
+<span class="fc bfc" id="L1109" title="All 2 branches covered.">        if (isEmpty()) {</span>
+<span class="fc" id="L1110">            return &quot;[]&quot;;</span>
+        }
+<span class="fc" id="L1112">        final StringBuilder buf = new StringBuilder(16 * size());</span>
+<span class="fc" id="L1113">        buf.append(CollectionUtils.DEFAULT_TOSTRING_PREFIX);</span>
+
+<span class="fc" id="L1115">        final Iterator&lt;E&gt; it = iterator();</span>
+<span class="fc" id="L1116">        boolean hasNext = it.hasNext();</span>
+<span class="fc bfc" id="L1117" title="All 2 branches covered.">        while (hasNext) {</span>
+<span class="fc" id="L1118">            final Object value = it.next();</span>
+<span class="pc bpc" id="L1119" title="1 of 2 branches missed.">            buf.append(value == this ? &quot;(this Collection)&quot; : value);</span>
+<span class="fc" id="L1120">            hasNext = it.hasNext();</span>
+<span class="fc bfc" id="L1121" title="All 2 branches covered.">            if (hasNext) {</span>
+<span class="fc" id="L1122">                buf.append(&quot;, &quot;);</span>
+            }
+<span class="fc" id="L1124">        }</span>
+<span class="fc" id="L1125">        buf.append(CollectionUtils.DEFAULT_TOSTRING_SUFFIX);</span>
+<span class="fc" id="L1126">        return buf.toString();</span>
+    }
+
+    /**
+     * Updates the node with a new value.
+     * This implementation sets the value on the node.
+     * Subclasses can override this to record the change.
+     *
+     * @param node  node to update
+     * @param value  new value of the node
+     */
+    protected void updateNode(final Node&lt;E&gt; node, final E value) {
+<span class="fc" id="L1138">        node.setValue(value);</span>
+<span class="fc" id="L1139">    }</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

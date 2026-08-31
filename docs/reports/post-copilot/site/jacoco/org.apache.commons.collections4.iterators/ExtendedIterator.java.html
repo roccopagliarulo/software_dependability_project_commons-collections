@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ExtendedIterator.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons Collections</a> &gt; <a href="index.source.html" class="el_package">org.apache.commons.collections4.iterators</a> &gt; <span class="el_source">ExtendedIterator.java</span></div><h1>ExtendedIterator.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.commons.collections4.iterators;
+
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
+
+import org.apache.commons.collections4.IteratorUtils;
+
+/**
+ * Extends Iterator functionality to include operations commonly found on streams (for example filtering, concatenating, mapping). It also provides convenience methods
+ * for common operations.
+ *
+ * @param &lt;T&gt; The type of object returned from the iterator.
+ * @since 4.5.0-M3
+ */
+public final class ExtendedIterator&lt;T&gt; implements IteratorOperations&lt;T&gt; {
+
+    /**
+     * Create an ExtendedIterator returning the elements of {@code it}. If {@code it} is itself an ExtendedIterator, return that; otherwise wrap
+     * {@code it}.
+     *
+     * @param &lt;T&gt; The type of object returned from the iterator.
+     * @param it The iterator to wrap.
+     * @return An Extended iterator wrapping {@code it}
+     */
+    public static &lt;T&gt; ExtendedIterator&lt;T&gt; create(final Iterator&lt;T&gt; it) {
+<span class="pc bpc" id="L46" title="1 of 2 branches missed.">        return it instanceof ExtendedIterator&lt;?&gt; ? (ExtendedIterator&lt;T&gt;) it : new ExtendedIterator&lt;&gt;(it, false);</span>
+    }
+
+    /**
+     * Creates an ExtendedIterator wrapped round a {@link Stream}. The extended iterator does not permit {@code .remove()}.
+     * &lt;p&gt;
+     * The stream should not be used directly. The effect of doing so is undefined.
+     * &lt;/p&gt;
+     *
+     * @param &lt;T&gt; The type of object returned from the iterator.
+     * @param stream The Stream to create an iterator from.
+     * @return An Extended iterator on the {@code stream} iterator.
+     */
+    public static &lt;T&gt; ExtendedIterator&lt;T&gt; create(final Stream&lt;T&gt; stream) {
+<span class="fc" id="L60">        return new ExtendedIterator&lt;&gt;(stream.iterator(), true);</span>
+    }
+
+    /**
+     * Creates an ExtendedIterator wrapped round {@code it}, which does not permit {@code .remove()} even if {@code it} does.
+     *
+     * @param &lt;T&gt; The type of object returned from the iterator.
+     * @param it The Iterator to wrap.
+     * @return An Extended iterator on {@code it}
+     * @throws UnsupportedOperationException if remove() is called on the resulting iterator.
+     */
+    public static &lt;T&gt; ExtendedIterator&lt;T&gt; createNoRemove(final Iterator&lt;T&gt; it) {
+<span class="fc" id="L72">        return new ExtendedIterator&lt;&gt;(it, true);</span>
+    }
+
+    /**
+     * Creates an empty Extended iterator.
+     *
+     * @return An empty Extended iterator.
+     */
+    public static ExtendedIterator&lt;?&gt; emptyIterator() {
+<span class="fc" id="L81">        return new ExtendedIterator&lt;&gt;(Collections.emptyIterator(), false);</span>
+    }
+
+    /**
+     * Flattens an iterator of iterators into an Iterator over the next level values. Similar to list splicing in lisp.
+     *
+     * @param &lt;T&gt; The type of object returned from the iterator.
+     * @param iterators An iterator of iterators.
+     * @return An iterator over the logical concatenation of the inner iterators.
+     */
+    public static &lt;T&gt; ExtendedIterator&lt;T&gt; flatten(final Iterator&lt;Iterator&lt;T&gt;&gt; iterators) {
+<span class="fc" id="L92">        return create(IteratorUtils.chainedIterator(iterators));</span>
+    }
+
+    /**
+     * Set to {@code true} if this wrapping doesn't permit the use of {@link #remove()}, otherwise removal is delegated to the base iterator.
+     */
+    private final boolean throwOnRemove;
+
+    /** The base iterator that we wrap */
+    private final Iterator&lt;? extends T&gt; base;
+
+    /**
+     * Initialize this wrapping with the given base iterator and remove-control.
+     *
+     * @param base          The base iterator that this iterator wraps
+     * @param throwOnRemove true if .remove() must throw an exception
+     */
+<span class="fc" id="L109">    private ExtendedIterator(final Iterator&lt;? extends T&gt; base, final boolean throwOnRemove) {</span>
+<span class="fc" id="L110">        this.base = base;</span>
+<span class="fc" id="L111">        this.throwOnRemove = throwOnRemove;</span>
+<span class="fc" id="L112">    }</span>
+
+    /**
+     * Chains the {@code other} iterator to the end of this one.
+     *
+     * @param other The other iterator to extend this iterator with.
+     * @return A new iterator returning the contents of {@code this} iterator followed by the contents of {@code other} iterator.
+     * @param &lt;X&gt; The type of object returned from the other iterator.
+     */
+    public &lt;X extends T&gt; ExtendedIterator&lt;T&gt; andThen(final Iterator&lt;X&gt; other) {
+<span class="pc bpc" id="L122" title="1 of 2 branches missed.">        if (base instanceof IteratorChain) {</span>
+<span class="nc" id="L123">            ((IteratorChain&lt;T&gt;) base).addIterator(other);</span>
+<span class="nc" id="L124">            return this;</span>
+        }
+<span class="fc" id="L126">        return new ExtendedIterator&lt;&gt;(new IteratorChain&lt;&gt;(base, other), throwOnRemove);</span>
+    }
+
+    /**
+     * Filter this iterator using a predicate. Only items for which the predicate returns {@code true} will be included in the result.
+     *
+     * @param predicate The predicate to filter the items with.
+     * @return An iterator filtered by the predicate.
+     */
+    public ExtendedIterator&lt;T&gt; filter(final Predicate&lt;T&gt; predicate) {
+<span class="fc" id="L136">        return new ExtendedIterator&lt;&gt;(new FilterIterator&lt;&gt;(this, predicate::test), throwOnRemove);</span>
+    }
+
+    @Override
+    public void forEachRemaining(final Consumer&lt;? super T&gt; action) {
+<span class="fc" id="L141">        base.forEachRemaining(action);</span>
+<span class="fc" id="L142">    }</span>
+
+    @Override
+    public boolean hasNext() {
+<span class="fc" id="L146">        return base.hasNext();</span>
+    }
+
+    /**
+     * Map the elements of the iterator to a now type.
+     *
+     * @param function The function to map elements of {@code &lt;T&gt;} to type {@code &lt;U&gt;}.
+     * @return An Extended iterator that returns a {@code &lt;U&gt;} for very {@code &lt;T&gt;} in the original iterator.
+     * @param &lt;U&gt; The object type to return.
+     */
+    public &lt;U&gt; ExtendedIterator&lt;U&gt; map(final Function&lt;T, U&gt; function) {
+<span class="fc" id="L157">        return new ExtendedIterator&lt;&gt;(new TransformIterator&lt;&gt;(this, function::apply), false);</span>
+    }
+
+    @Override
+    public T next() {
+<span class="fc" id="L162">        return base.next();</span>
+    }
+
+    @Override
+    public void remove() {
+<span class="fc bfc" id="L167" title="All 2 branches covered.">        if (throwOnRemove) {</span>
+<span class="fc" id="L168">            throw new UnsupportedOperationException();</span>
+        }
+<span class="fc" id="L170">        base.remove();</span>
+<span class="fc" id="L171">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

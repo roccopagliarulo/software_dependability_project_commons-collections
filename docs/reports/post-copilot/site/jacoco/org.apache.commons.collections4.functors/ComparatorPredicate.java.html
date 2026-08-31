@@ -1,0 +1,212 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ComparatorPredicate.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons Collections</a> &gt; <a href="index.source.html" class="el_package">org.apache.commons.collections4.functors</a> &gt; <span class="el_source">ComparatorPredicate.java</span></div><h1>ComparatorPredicate.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.commons.collections4.functors;
+
+import java.io.Serializable;
+import java.util.Comparator;
+import java.util.Objects;
+
+import org.apache.commons.collections4.Predicate;
+
+/**
+ * Predicate that compares the input object with the one stored in the predicate using a comparator.
+ * In addition, the comparator result can be evaluated in accordance to a supplied criterion value.
+ *
+ * &lt;p&gt;In order to demonstrate the use of the predicate, the following variables are declared:&lt;/p&gt;
+ *
+ * &lt;pre&gt;
+ * Integer ONE = Integer.valueOf(1);
+ * Integer TWO = Integer.valueOf(2);
+ *
+ * Comparator comparator = new Comparator() {
+ *
+ *     public int compare(Object first, Object second) {
+ *         return ((Integer) second) - ((Integer) first);
+ *     }
+ *
+ * };
+ * &lt;/pre&gt;
+ *
+ * &lt;p&gt;Using the declared variables, the {@code ComparatorPredicate} can be used in the
+ * following way:&lt;/p&gt;
+ *
+ * &lt;pre&gt;
+ * ComparatorPredicate.comparatorPredicate(ONE, comparator).test(TWO);
+ * &lt;/pre&gt;
+ *
+ * &lt;p&gt;The input variable {@code TWO} in compared to the stored variable {@code ONE} using
+ * the supplied {@code comparator}. This is the default usage of the predicate and will return
+ * {@code true} if the underlying comparator returns {@code 0}. In addition to the default
+ * usage of the predicate, it is possible to evaluate the comparator's result in several ways. The
+ * following {@link Criterion} enumeration values are provided by the predicate:
+ * &lt;/p&gt;
+ *
+ * &lt;ul&gt;
+ *     &lt;li&gt;EQUAL&lt;/li&gt;
+ *     &lt;li&gt;GREATER&lt;/li&gt;
+ *     &lt;li&gt;GREATER_OR_EQUAL&lt;/li&gt;
+ *     &lt;li&gt;LESS&lt;/li&gt;
+ *     &lt;li&gt;LESS_OR_EQUAL&lt;/li&gt;
+ * &lt;/ul&gt;
+ *
+ * &lt;p&gt;The following examples demonstrates how these constants can be used in order to manipulate the
+ * evaluation of a comparator result.&lt;/p&gt;
+ *
+ * &lt;pre&gt;
+ * ComparatorPredicate.comparatorPredicate(ONE, comparator,&lt;strong&gt;ComparatorPredicate.Criterion.GREATER&lt;/strong&gt;).test(TWO);
+ * &lt;/pre&gt;
+ *
+ * &lt;p&gt;The input variable TWO is compared to the stored variable ONE using the supplied {@code comparator}
+ * using the {@code GREATER} evaluation criterion constant. This instructs the predicate to
+ * return {@code true} if the comparator returns a value greater than {@code 0}.&lt;/p&gt;
+ *
+ * @param &lt;T&gt; The type of the input to the predicate.
+ * @since 4.0
+ */
+public class ComparatorPredicate&lt;T&gt; extends AbstractPredicate&lt;T&gt; implements Serializable {
+
+    /**
+     * Enumerates the comparator criteria.
+     */
+<span class="fc" id="L85">    public enum Criterion {</span>
+
+        /**
+         * Equal criterion.
+         */
+<span class="fc" id="L90">        EQUAL,</span>
+
+        /**
+         * Greater criterion.
+         */
+<span class="fc" id="L95">        GREATER,</span>
+
+        /**
+         * Less criterion.
+         */
+<span class="fc" id="L100">        LESS,</span>
+
+        /**
+         * Greater or equal criterion.
+         */
+<span class="fc" id="L105">        GREATER_OR_EQUAL,</span>
+
+        /**
+         * Less or equal Criterion.
+         */
+<span class="fc" id="L110">        LESS_OR_EQUAL,</span>
+    }
+
+    private static final long serialVersionUID = -1863209236504077399L;
+
+    /**
+     * Creates the comparator predicate
+     *
+     * @param &lt;T&gt; The type that the predicate queries
+     * @param object  The object to compare to
+     * @param comparator  The comparator to use for comparison
+     * @return The predicate
+     * @throws NullPointerException if comparator is null
+     */
+    public static &lt;T&gt; Predicate&lt;T&gt; comparatorPredicate(final T object, final Comparator&lt;T&gt; comparator) {
+<span class="fc" id="L125">        return comparatorPredicate(object, comparator, Criterion.EQUAL);</span>
+    }
+
+    /**
+     * Creates the comparator predicate
+     *
+     * @param &lt;T&gt; The type that the predicate queries
+     * @param object  The object to compare to
+     * @param comparator  The comparator to use for comparison
+     * @param criterion  The criterion to use to evaluate comparison
+     * @return The predicate
+     * @throws NullPointerException if comparator or criterion is null
+     */
+    public static &lt;T&gt; Predicate&lt;T&gt; comparatorPredicate(final T object, final Comparator&lt;T&gt; comparator,
+                                                       final Criterion criterion) {
+<span class="fc" id="L140">        return new ComparatorPredicate&lt;&gt;(object, Objects.requireNonNull(comparator, &quot;comparator&quot;),</span>
+<span class="fc" id="L141">                Objects.requireNonNull(criterion, &quot;criterion&quot;));</span>
+    }
+
+    /** The internal object to compare with */
+    private final T object;
+
+    /** The comparator to use for comparison */
+    private final Comparator&lt;T&gt; comparator;
+
+    /** The comparison evaluation criterion to use */
+    private final Criterion criterion;
+
+    /**
+     * Constructor that performs no validation.
+     * Use {@code comparatorPredicate} if you want that.
+     *
+     * @param object  The object to compare to
+     * @param comparator  The comparator to use for comparison
+     * @param criterion  The criterion to use to evaluate comparison
+     */
+<span class="fc" id="L161">    public ComparatorPredicate(final T object, final Comparator&lt;T&gt; comparator, final Criterion criterion) {</span>
+<span class="fc" id="L162">        this.object = object;</span>
+<span class="fc" id="L163">        this.comparator = comparator;</span>
+<span class="fc" id="L164">        this.criterion = criterion;</span>
+<span class="fc" id="L165">    }</span>
+
+    /**
+     * Evaluates the predicate. The predicate evaluates to {@code true} in the following cases:
+     *
+     * &lt;ul&gt;
+     * &lt;li&gt;{@code comparator.compare(object, input) == 0 &amp;amp;&amp;amp; criterion == EQUAL}&lt;/li&gt;
+     * &lt;li&gt;{@code comparator.compare(object, input) &amp;lt; 0 &amp;amp;&amp;amp; criterion == LESS}&lt;/li&gt;
+     * &lt;li&gt;{@code comparator.compare(object, input) &amp;gt; 0 &amp;amp;&amp;amp; criterion == GREATER}&lt;/li&gt;
+     * &lt;li&gt;{@code comparator.compare(object, input) &amp;gt;= 0 &amp;amp;&amp;amp; criterion == GREATER_OR_EQUAL}&lt;/li&gt;
+     * &lt;li&gt;{@code comparator.compare(object, input) &amp;lt;= 0 &amp;amp;&amp;amp; criterion == LESS_OR_EQUAL}&lt;/li&gt;
+     * &lt;/ul&gt;
+     *
+     * @see org.apache.commons.collections4.Predicate#test(Object)
+     * @see java.util.Comparator#compare(Object first, Object second)
+     * @param target  The target object to compare to
+     * @return {@code true} if the comparison succeeds according to the selected criterion
+     * @throws IllegalStateException if the criterion is invalid (really not possible)
+     */
+    @Override
+    public boolean test(final T target) {
+
+<span class="fc" id="L187">        boolean result = false;</span>
+<span class="fc" id="L188">        final int comparison = comparator.compare(object, target);</span>
+<span class="pc bpc" id="L189" title="1 of 6 branches missed.">        switch (criterion) {</span>
+        case EQUAL:
+<span class="fc bfc" id="L191" title="All 2 branches covered.">            result = comparison == 0;</span>
+<span class="fc" id="L192">            break;</span>
+        case GREATER:
+<span class="fc bfc" id="L194" title="All 2 branches covered.">            result = comparison &gt; 0;</span>
+<span class="fc" id="L195">            break;</span>
+        case LESS:
+<span class="fc bfc" id="L197" title="All 2 branches covered.">            result = comparison &lt; 0;</span>
+<span class="fc" id="L198">            break;</span>
+        case GREATER_OR_EQUAL:
+<span class="fc bfc" id="L200" title="All 2 branches covered.">            result = comparison &gt;= 0;</span>
+<span class="fc" id="L201">            break;</span>
+        case LESS_OR_EQUAL:
+<span class="fc bfc" id="L203" title="All 2 branches covered.">            result = comparison &lt;= 0;</span>
+<span class="fc" id="L204">            break;</span>
+        default:
+<span class="nc" id="L206">            throw new IllegalStateException(&quot;The current criterion '&quot; + criterion + &quot;' is invalid.&quot;);</span>
+        }
+
+<span class="fc" id="L209">        return result;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

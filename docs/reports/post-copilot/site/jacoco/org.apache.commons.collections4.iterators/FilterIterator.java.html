@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FilterIterator.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons Collections</a> &gt; <a href="index.source.html" class="el_package">org.apache.commons.collections4.iterators</a> &gt; <span class="el_source">FilterIterator.java</span></div><h1>FilterIterator.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.commons.collections4.iterators;
+
+import java.util.Iterator;
+import java.util.NoSuchElementException;
+
+import org.apache.commons.collections4.Predicate;
+import org.apache.commons.collections4.functors.TruePredicate;
+
+/**
+ * Decorates an {@link Iterator} using an optional predicate to filter elements.
+ * &lt;p&gt;
+ * This iterator decorates the underlying iterator, only allowing through
+ * those elements that match the specified {@link Predicate Predicate}.
+ * &lt;/p&gt;
+ *
+ * @param &lt;E&gt; The type of elements returned by this iterator.
+ * @since 1.0
+ */
+public class FilterIterator&lt;E&gt; implements IteratorOperations&lt;E&gt; {
+
+    /** The iterator to be filtered. */
+    private Iterator&lt;? extends E&gt; iterator;
+
+    /** The predicate to filter elements. */
+<span class="fc" id="L41">    private Predicate&lt;? super E&gt; predicate = TruePredicate.truePredicate();</span>
+
+    /** The next object in the iteration. */
+    private E nextObject;
+
+    /** Whether the next object has been calculated yet. */
+    private boolean nextObjectSet;
+
+    /**
+     * Constructs a new {@code FilterIterator} that will not function
+     * until {@link #setIterator(Iterator) setIterator} is invoked.
+     */
+<span class="fc" id="L53">    public FilterIterator() {</span>
+<span class="fc" id="L54">    }</span>
+
+    /**
+     * Constructs a new {@code FilterIterator} that will not function
+     * until {@link #setPredicate(Predicate) setPredicate} is invoked.
+     *
+     * @param iterator  The iterator to use
+     */
+<span class="fc" id="L62">    public FilterIterator(final Iterator&lt;? extends E&gt; iterator) {</span>
+<span class="fc" id="L63">        this.iterator = iterator;</span>
+<span class="fc" id="L64">    }</span>
+
+    /**
+     * Constructs a new {@code FilterIterator} that will use the
+     * given iterator and predicate.
+     *
+     * @param iterator  The iterator to use
+     * @param predicate  The predicate to use, null accepts all values.
+     */
+<span class="fc" id="L73">    public FilterIterator(final Iterator&lt;? extends E&gt; iterator, final Predicate&lt;? super E&gt; predicate) {</span>
+<span class="fc" id="L74">        this.iterator = iterator;</span>
+<span class="fc" id="L75">        this.predicate = safePredicate(predicate);</span>
+<span class="fc" id="L76">    }</span>
+
+    /**
+     * Gets the iterator this iterator is using.
+     *
+     * @return The underlying iterator.
+     */
+    public Iterator&lt;? extends E&gt; getIterator() {
+<span class="nc" id="L84">        return iterator;</span>
+    }
+
+    /**
+     * Gets the predicate this iterator is using.
+     *
+     * @return The filtering predicate.
+     */
+    public Predicate&lt;? super E&gt; getPredicate() {
+<span class="nc" id="L93">        return predicate;</span>
+    }
+
+    /**
+     * Returns true if the underlying iterator contains an object that
+     * matches the predicate.
+     *
+     * @return true if there is another object that matches the predicate
+     * @throws NullPointerException if either the iterator or predicate are null
+     */
+    @Override
+    public boolean hasNext() {
+<span class="fc bfc" id="L105" title="All 4 branches covered.">        return nextObjectSet || setNextObject();</span>
+    }
+
+    /**
+     * Returns the next object that matches the predicate.
+     *
+     * @return The next object which matches the given predicate
+     * @throws NullPointerException if either the iterator or predicate are null
+     * @throws NoSuchElementException if there are no more elements that
+     *  match the predicate
+     */
+    @Override
+    public E next() {
+<span class="fc bfc" id="L118" title="All 4 branches covered.">        if (!nextObjectSet &amp;&amp; !setNextObject()) {</span>
+<span class="fc" id="L119">            throw new NoSuchElementException();</span>
+        }
+<span class="fc" id="L121">        nextObjectSet = false;</span>
+<span class="fc" id="L122">        return nextObject;</span>
+    }
+
+    /**
+     * Removes from the underlying collection of the base iterator the last
+     * element returned by this iterator.
+     * This method can only be called
+     * if {@code next()} was called, but not after
+     * {@code hasNext()}, because the {@code hasNext()} call
+     * changes the base iterator.
+     *
+     * @throws IllegalStateException if {@code hasNext()} has already
+     *  been called.
+     */
+    @Override
+    public void remove() {
+<span class="pc bpc" id="L138" title="1 of 2 branches missed.">        if (nextObjectSet) {</span>
+<span class="nc" id="L139">            throw new IllegalStateException(&quot;remove() cannot be called&quot;);</span>
+        }
+<span class="fc" id="L141">        iterator.remove();</span>
+<span class="fc" id="L142">    }</span>
+
+    private Predicate&lt;? super E&gt; safePredicate(final Predicate&lt;? super E&gt; predicate) {
+<span class="pc bpc" id="L145" title="1 of 2 branches missed.">        return predicate != null ? predicate : TruePredicate.truePredicate();</span>
+    }
+
+    /**
+     * Sets the iterator for this iterator to use.
+     * If iteration has started, this effectively resets the iterator.
+     *
+     * @param iterator  The iterator to use
+     */
+    public void setIterator(final Iterator&lt;? extends E&gt; iterator) {
+<span class="fc" id="L155">        this.iterator = iterator;</span>
+<span class="fc" id="L156">        nextObject = null;</span>
+<span class="fc" id="L157">        nextObjectSet = false;</span>
+<span class="fc" id="L158">    }</span>
+
+    /**
+     * Sets nextObject to the next object. If there are no more
+     * objects, then return false. Otherwise, return true.
+     */
+    private boolean setNextObject() {
+<span class="fc bfc" id="L165" title="All 2 branches covered.">        while (iterator.hasNext()) {</span>
+<span class="fc" id="L166">            final E object = iterator.next();</span>
+<span class="fc bfc" id="L167" title="All 2 branches covered.">            if (predicate.test(object)) {</span>
+<span class="fc" id="L168">                nextObject = object;</span>
+<span class="fc" id="L169">                nextObjectSet = true;</span>
+<span class="fc" id="L170">                return true;</span>
+            }
+<span class="fc" id="L172">        }</span>
+<span class="fc" id="L173">        return false;</span>
+    }
+
+    /**
+     * Sets the predicate this the iterator to use where null accepts all values.
+     *
+     * @param predicate  The predicate to use, null accepts all values.
+     */
+    public void setPredicate(final Predicate&lt;? super E&gt; predicate) {
+<span class="fc" id="L182">        this.predicate = safePredicate(predicate);</span>
+<span class="fc" id="L183">        nextObject = null;</span>
+<span class="fc" id="L184">        nextObjectSet = false;</span>
+<span class="fc" id="L185">    }</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

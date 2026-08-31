@@ -1,0 +1,469 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="it"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PredicatedCollection.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons Collections</a> &gt; <a href="index.source.html" class="el_package">org.apache.commons.collections4.collection</a> &gt; <span class="el_source">PredicatedCollection.java</span></div><h1>PredicatedCollection.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.commons.collections4.collection;
+
+import java.io.IOException;
+import java.io.InvalidObjectException;
+import java.io.ObjectInputStream;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Objects;
+import java.util.Queue;
+import java.util.Set;
+
+import org.apache.commons.collections4.Bag;
+import org.apache.commons.collections4.MultiSet;
+import org.apache.commons.collections4.Predicate;
+import org.apache.commons.collections4.bag.HashBag;
+import org.apache.commons.collections4.bag.PredicatedBag;
+import org.apache.commons.collections4.functors.NotNullPredicate;
+import org.apache.commons.collections4.list.PredicatedList;
+import org.apache.commons.collections4.multiset.HashMultiSet;
+import org.apache.commons.collections4.multiset.PredicatedMultiSet;
+import org.apache.commons.collections4.queue.PredicatedQueue;
+import org.apache.commons.collections4.set.PredicatedSet;
+
+/**
+ * Decorates another {@link Collection} to validate that additions
+ * match a specified predicate.
+ * &lt;p&gt;
+ * This collection exists to provide validation for the decorated collection.
+ * It is normally created to decorate an empty collection.
+ * If an object cannot be added to the collection, an IllegalArgumentException is thrown.
+ * &lt;/p&gt;
+ * &lt;p&gt;
+ * One usage would be to ensure that no null entries are added to the collection:
+ * &lt;/p&gt;
+ * &lt;pre&gt;
+ * Collection coll = PredicatedCollection.predicatedCollection(new ArrayList(), NotNullPredicate.INSTANCE);
+ * &lt;/pre&gt;
+ * &lt;p&gt;
+ * This class is Serializable from Commons Collections 3.1.
+ * &lt;/p&gt;
+ *
+ * @param &lt;E&gt; The type of the elements in the collection.
+ * @since 3.0
+ */
+public class PredicatedCollection&lt;E&gt; extends AbstractCollectionDecorator&lt;E&gt; {
+
+    /**
+     * Builder for creating predicated collections.
+     * &lt;p&gt;
+     * Create a Builder with a predicate to validate elements against, then add any elements
+     * to the builder. Elements that fail the predicate will be added to a rejected list.
+     * Finally, create or decorate a collection using the createPredicated[List,Set,Bag,Queue] methods.
+     * &lt;/p&gt;
+     * &lt;p&gt;
+     * For example:
+     * &lt;/p&gt;
+     * &lt;pre&gt;
+     *   Predicate&amp;lt;String&amp;gt; predicate = NotNullPredicate.notNullPredicate();
+     *   PredicatedCollectionBuilder&amp;lt;String&amp;gt; builder = PredicatedCollection.builder(predicate);
+     *   builder.add(&quot;item1&quot;);
+     *   builder.add(null);
+     *   builder.add(&quot;item2&quot;);
+     *   List&amp;lt;String&amp;gt; predicatedList = builder.createPredicatedList();
+     * &lt;/pre&gt;
+     * &lt;p&gt;
+     * At the end of the code fragment above predicatedList is protected by the predicate supplied
+     * to the builder, and it contains item1 and item2.
+     * &lt;/p&gt;
+     * &lt;p&gt;
+     * More elements can be added to the builder once a predicated collection has been created,
+     * but these elements will not be reflected in already created collections.
+     * &lt;/p&gt;
+     *
+     * @param &lt;E&gt;  the element type.
+     * @since 4.1
+     */
+    public static class Builder&lt;E&gt; {
+
+        /** The predicate to use. */
+        private final Predicate&lt;? super E&gt; predicate;
+
+        /** The buffer containing valid elements. */
+<span class="fc" id="L103">        private final List&lt;E&gt; accepted = new ArrayList&lt;&gt;();</span>
+
+        /** The buffer containing rejected elements. */
+<span class="fc" id="L106">        private final List&lt;E&gt; rejected = new ArrayList&lt;&gt;();</span>
+
+        /**
+         * Constructs a PredicatedCollectionBuilder with the specified Predicate.
+         *
+         * @param predicate  The predicate to use.
+         * @throws NullPointerException if predicate is null.
+         */
+<span class="fc" id="L114">        public Builder(final Predicate&lt;? super E&gt; predicate) {</span>
+<span class="fc" id="L115">            this.predicate = Objects.requireNonNull(predicate, &quot;predicate&quot;);</span>
+<span class="fc" id="L116">        }</span>
+
+        /**
+         * Adds the item to the builder.
+         * &lt;p&gt;
+         * If the predicate is true, it is added to the list of accepted elements,
+         * otherwise it is added to the rejected list.
+         * &lt;/p&gt;
+         *
+         * @param item  The element to add.
+         * @return The PredicatedCollectionBuilder.
+         */
+        public Builder&lt;E&gt; add(final E item) {
+<span class="fc bfc" id="L129" title="All 2 branches covered.">            if (predicate.test(item)) {</span>
+<span class="fc" id="L130">                accepted.add(item);</span>
+            } else {
+<span class="fc" id="L132">                rejected.add(item);</span>
+            }
+<span class="fc" id="L134">            return this;</span>
+        }
+
+        /**
+         * Adds all elements from the given collection to the builder.
+         * &lt;p&gt;
+         * All elements for which the predicate evaluates to true will be added to the
+         * list of accepted elements, otherwise they are added to the rejected list.
+         * &lt;/p&gt;
+         *
+         * @param items  The elements to add to the builder.
+         * @return The PredicatedCollectionBuilder.
+         */
+        public Builder&lt;E&gt; addAll(final Collection&lt;? extends E&gt; items) {
+<span class="pc bpc" id="L148" title="1 of 2 branches missed.">            if (items != null) {</span>
+<span class="fc" id="L149">                items.forEach(this::add);</span>
+            }
+<span class="fc" id="L151">            return this;</span>
+        }
+
+        /**
+         * Create a new predicated bag filled with the accepted elements.
+         * &lt;p&gt;
+         * The builder is not modified by this method, so it is possible to create more collections
+         * or add more elements afterwards. Further changes will not propagate to the returned bag.
+         * &lt;/p&gt;
+         *
+         * @return A new predicated bag.
+         * @deprecated Since 4.6.0, use {@link #createPredicatedMultiSet()} instead.
+         */
+        @Deprecated
+        public Bag&lt;E&gt; createPredicatedBag() {
+<span class="fc" id="L166">            return createPredicatedBag(new HashBag&lt;&gt;());</span>
+        }
+
+        /**
+         * Decorates the given bag with validating behavior using the predicate. All accepted elements
+         * are appended to the bag. If the bag already contains elements, they are validated.
+         * &lt;p&gt;
+         * The builder is not modified by this method, so it is possible to create more collections
+         * or add more elements afterwards. Further changes will not propagate to the returned bag.
+         * &lt;/p&gt;
+         *
+         * @param bag  The bag to decorate, must not be null.
+         * @return The decorated bag.
+         * @throws NullPointerException if bag is null.
+         * @throws IllegalArgumentException if bag contains invalid elements.
+         * @deprecated Since 4.6.0, use {@link #createPredicatedMultiSet(MultiSet)} instead.
+         */
+        @Deprecated
+        public Bag&lt;E&gt; createPredicatedBag(final Bag&lt;E&gt; bag) {
+<span class="fc" id="L185">            Objects.requireNonNull(bag, &quot;bag&quot;);</span>
+<span class="fc" id="L186">            final PredicatedBag&lt;E&gt; predicatedBag = PredicatedBag.predicatedBag(bag, predicate);</span>
+<span class="fc" id="L187">            predicatedBag.addAll(accepted);</span>
+<span class="fc" id="L188">            return predicatedBag;</span>
+        }
+
+        /**
+         * Create a new predicated list filled with the accepted elements.
+         * &lt;p&gt;
+         * The builder is not modified by this method, so it is possible to create more collections
+         * or add more elements afterwards. Further changes will not propagate to the returned list.
+         * &lt;/p&gt;
+         *
+         * @return A new predicated list.
+         */
+        public List&lt;E&gt; createPredicatedList() {
+<span class="fc" id="L201">            return createPredicatedList(new ArrayList&lt;&gt;());</span>
+        }
+
+        /**
+         * Decorates the given list with validating behavior using the predicate. All accepted elements
+         * are appended to the list. If the list already contains elements, they are validated.
+         * &lt;p&gt;
+         * The builder is not modified by this method, so it is possible to create more collections
+         * or add more elements afterwards. Further changes will not propagate to the returned list.
+         * &lt;/p&gt;
+         *
+         * @param list  The List to decorate, must not be null.
+         * @return The decorated list.
+         * @throws NullPointerException if list is null.
+         * @throws IllegalArgumentException if list contains invalid elements.
+         */
+        public List&lt;E&gt; createPredicatedList(final List&lt;E&gt; list) {
+<span class="fc" id="L218">            Objects.requireNonNull(list, &quot;list&quot;);</span>
+<span class="fc" id="L219">            final List&lt;E&gt; predicatedList = PredicatedList.predicatedList(list, predicate);</span>
+<span class="fc" id="L220">            predicatedList.addAll(accepted);</span>
+<span class="fc" id="L221">            return predicatedList;</span>
+        }
+
+        /**
+         * Create a new predicated multiset filled with the accepted elements.
+         * &lt;p&gt;
+         * The builder is not modified by this method, so it is possible to create more collections
+         * or add more elements afterwards. Further changes will not propagate to the returned multiset.
+         * &lt;/p&gt;
+         *
+         * @return A new predicated multiset.
+         */
+        public MultiSet&lt;E&gt; createPredicatedMultiSet() {
+<span class="nc" id="L234">            return createPredicatedMultiSet(new HashMultiSet&lt;&gt;());</span>
+        }
+
+        /**
+         * Decorates the given multiset with validating behavior using the predicate. All accepted elements
+         * are appended to the multiset. If the multiset already contains elements, they are validated.
+         * &lt;p&gt;
+         * The builder is not modified by this method, so it is possible to create more collections
+         * or add more elements afterwards. Further changes will not propagate to the returned multiset.
+         * &lt;/p&gt;
+         *
+         * @param multiset  The multiset to decorate, must not be null.
+         * @return The decorated multiset.
+         * @throws NullPointerException if multiset is null.
+         * @throws IllegalArgumentException if multiset contains invalid elements.
+         */
+        public MultiSet&lt;E&gt; createPredicatedMultiSet(final MultiSet&lt;E&gt; multiset) {
+<span class="nc" id="L251">            Objects.requireNonNull(multiset, &quot;multiset&quot;);</span>
+<span class="nc" id="L252">            final PredicatedMultiSet&lt;E&gt; predicatedMultiSet = PredicatedMultiSet.predicatedMultiSet(multiset, predicate);</span>
+<span class="nc" id="L253">            predicatedMultiSet.addAll(accepted);</span>
+<span class="nc" id="L254">            return predicatedMultiSet;</span>
+        }
+
+        /**
+         * Create a new predicated queue filled with the accepted elements.
+         * &lt;p&gt;
+         * The builder is not modified by this method, so it is possible to create more collections
+         * or add more elements afterwards. Further changes will not propagate to the returned queue.
+         * &lt;/p&gt;
+         *
+         * @return A new predicated queue.
+         */
+        public Queue&lt;E&gt; createPredicatedQueue() {
+<span class="fc" id="L267">            return createPredicatedQueue(new LinkedList&lt;&gt;());</span>
+        }
+
+        /**
+         * Decorates the given queue with validating behavior using the predicate. All accepted elements
+         * are appended to the queue. If the queue already contains elements, they are validated.
+         * &lt;p&gt;
+         * The builder is not modified by this method, so it is possible to create more collections
+         * or add more elements afterwards. Further changes will not propagate to the returned queue.
+         * &lt;/p&gt;
+         *
+         * @param queue  The queue to decorate, must not be null.
+         * @return The decorated queue.
+         * @throws NullPointerException if queue is null.
+         * @throws IllegalArgumentException if queue contains invalid elements.
+         */
+        public Queue&lt;E&gt; createPredicatedQueue(final Queue&lt;E&gt; queue) {
+<span class="fc" id="L284">            Objects.requireNonNull(queue, &quot;queue&quot;);</span>
+<span class="fc" id="L285">            final PredicatedQueue&lt;E&gt; predicatedQueue = PredicatedQueue.predicatedQueue(queue, predicate);</span>
+<span class="fc" id="L286">            predicatedQueue.addAll(accepted);</span>
+<span class="fc" id="L287">            return predicatedQueue;</span>
+        }
+
+        /**
+         * Create a new predicated set filled with the accepted elements.
+         * &lt;p&gt;
+         * The builder is not modified by this method, so it is possible to create more collections
+         * or add more elements afterwards. Further changes will not propagate to the returned set.
+         * &lt;/p&gt;
+         *
+         * @return A new predicated set.
+         */
+        public Set&lt;E&gt; createPredicatedSet() {
+<span class="fc" id="L300">            return createPredicatedSet(new HashSet&lt;&gt;());</span>
+        }
+
+        /**
+         * Decorates the given list with validating behavior using the predicate. All accepted elements
+         * are appended to the set. If the set already contains elements, they are validated.
+         * &lt;p&gt;
+         * The builder is not modified by this method, so it is possible to create more collections
+         * or add more elements afterwards. Further changes will not propagate to the returned set.
+         * &lt;/p&gt;
+         *
+         * @param set  The set to decorate, must not be null.
+         * @return The decorated set.
+         * @throws NullPointerException if set is null.
+         * @throws IllegalArgumentException if set contains invalid elements.
+         */
+        public Set&lt;E&gt; createPredicatedSet(final Set&lt;E&gt; set) {
+<span class="fc" id="L317">            Objects.requireNonNull(set, &quot;set&quot;);</span>
+<span class="fc" id="L318">            final PredicatedSet&lt;E&gt; predicatedSet = PredicatedSet.predicatedSet(set, predicate);</span>
+<span class="fc" id="L319">            predicatedSet.addAll(accepted);</span>
+<span class="fc" id="L320">            return predicatedSet;</span>
+        }
+
+        /**
+         * Returns an unmodifiable collection containing all rejected elements.
+         *
+         * @return An unmodifiable collection.
+         */
+        public Collection&lt;E&gt; rejectedElements() {
+<span class="fc" id="L329">            return Collections.unmodifiableCollection(rejected);</span>
+        }
+
+    }
+
+    /** Serialization version */
+    private static final long serialVersionUID = -5259182142076705162L;
+
+    /**
+     * Returns a Builder with the given predicate.
+     *
+     * @param &lt;E&gt;  the element type.
+     * @param predicate  The predicate to use.
+     * @return A new Builder for predicated collections.
+     * @since 4.1
+     */
+    public static &lt;E&gt; Builder&lt;E&gt; builder(final Predicate&lt;? super E&gt; predicate) {
+<span class="fc" id="L346">        return new Builder&lt;&gt;(predicate);</span>
+    }
+
+    /**
+     * Returns a Builder with a NotNullPredicate.
+     *
+     * @param &lt;E&gt;  the element type.
+     * @return A new Builder for predicated collections that ignores null values.
+     * @since 4.1
+     */
+    public static &lt;E&gt; Builder&lt;E&gt; notNullBuilder() {
+<span class="fc" id="L357">        return new Builder&lt;&gt;(NotNullPredicate.&lt;E&gt;notNullPredicate());</span>
+    }
+
+    /**
+     * Factory method to create a predicated (validating) collection.
+     * &lt;p&gt;
+     * If there are any elements already in the collection being decorated, they
+     * are validated.
+     * &lt;/p&gt;
+     *
+     * @param &lt;T&gt; The type of the elements in the collection.
+     * @param coll  The collection to decorate, must not be null.
+     * @param predicate  The predicate to use for validation, must not be null.
+     * @return A new predicated collection.
+     * @throws NullPointerException if collection or predicate is null.
+     * @throws IllegalArgumentException if the collection contains invalid elements.
+     * @since 4.0
+     */
+    public static &lt;T&gt; PredicatedCollection&lt;T&gt; predicatedCollection(final Collection&lt;T&gt; coll,
+                                                                   final Predicate&lt;? super T&gt; predicate) {
+<span class="fc" id="L377">        return new PredicatedCollection&lt;&gt;(coll, predicate);</span>
+    }
+
+    /** The predicate to use */
+    protected final Predicate&lt;? super E&gt; predicate;
+
+    /**
+     * Constructor that wraps (not copies).
+     * &lt;p&gt;
+     * If there are any elements already in the collection being decorated, they
+     * are validated.
+     * &lt;/p&gt;
+     *
+     * @param collection  The collection to decorate, must not be null.
+     * @param predicate  The predicate to use for validation, must not be null.
+     * @throws NullPointerException if collection or predicate is null.
+     * @throws IllegalArgumentException if the collection contains invalid elements.
+     */
+    protected PredicatedCollection(final Collection&lt;E&gt; collection, final Predicate&lt;? super E&gt; predicate) {
+<span class="fc" id="L396">        super(collection);</span>
+<span class="fc" id="L397">        this.predicate = Objects.requireNonNull(predicate, &quot;predicate&quot;);</span>
+<span class="fc" id="L398">        collection.forEach(this::validate);</span>
+<span class="fc" id="L399">    }</span>
+
+    /**
+     * Override to validate the object being added to ensure it matches
+     * the predicate.
+     *
+     * @param object  The object being added.
+     * @return The result of adding to the underlying collection.
+     * @throws IllegalArgumentException if the add is invalid.
+     */
+    @Override
+    public boolean add(final E object) {
+<span class="fc" id="L411">        validate(object);</span>
+<span class="fc" id="L412">        return decorated().add(object);</span>
+    }
+
+    /**
+     * Override to validate the objects being added to ensure they match
+     * the predicate. If anyone fails, no update is made to the underlying
+     * collection.
+     *
+     * @param coll  The collection being added.
+     * @return The result of adding to the underlying collection.
+     * @throws IllegalArgumentException if the add is invalid.
+     */
+    @Override
+    public boolean addAll(final Collection&lt;? extends E&gt; coll) {
+<span class="fc" id="L426">        coll.forEach(this::validate);</span>
+<span class="fc" id="L427">        return decorated().addAll(coll);</span>
+    }
+
+    /**
+     * Deserializes the collection in using a custom routine.
+     *
+     * @param in  The input stream.
+     * @throws IOException Thrown if an error occurs while reading from the stream.
+     * @throws ClassNotFoundException if an object read from the stream cannot be loaded.
+     */
+    private void readObject(final ObjectInputStream in) throws IOException, ClassNotFoundException {
+<span class="fc" id="L438">        in.defaultReadObject();</span>
+<span class="pc bpc" id="L439" title="1 of 2 branches missed.">        if (decorated() == null) {</span>
+<span class="nc" id="L440">            throw new InvalidObjectException(&quot;Null collection&quot;);</span>
+        }
+<span class="pc bpc" id="L442" title="1 of 2 branches missed.">        if (predicate == null) {</span>
+<span class="nc" id="L443">            throw new InvalidObjectException(&quot;Null predicate&quot;);</span>
+        }
+        try {
+<span class="fc" id="L446">            decorated().forEach(this::validate);</span>
+<span class="fc" id="L447">        } catch (final IllegalArgumentException ex) {</span>
+<span class="fc" id="L448">            throw (InvalidObjectException) new InvalidObjectException(ex.getMessage()).initCause(ex);</span>
+<span class="fc" id="L449">        }</span>
+<span class="fc" id="L450">    }</span>
+
+    /**
+     * Validates the object being added to ensure it matches the predicate.
+     * &lt;p&gt;
+     * The predicate itself should not throw an exception, but return false to
+     * indicate that the object cannot be added.
+     * &lt;/p&gt;
+     *
+     * @param object  The object being added.
+     * @throws IllegalArgumentException if the add is invalid.
+     */
+    protected void validate(final E object) {
+<span class="fc bfc" id="L463" title="All 2 branches covered.">        if (!predicate.test(object)) {</span>
+<span class="fc" id="L464">            throw new IllegalArgumentException(&quot;Cannot add Object '&quot; + object + &quot;' - Predicate '&quot; + predicate + &quot;' rejected it&quot;);</span>
+        }
+<span class="fc" id="L466">    }</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>
