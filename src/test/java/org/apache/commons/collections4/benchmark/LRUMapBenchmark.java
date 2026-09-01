@@ -48,10 +48,18 @@ public class LRUMapBenchmark {
     private static final int CAPACITY = 1000;
     // Numero di operazioni di lookup casuali nel benchmark "misto"
     private static final int LOOKUP_OPS = 1000;
+    // Numero di put per invocazione nel benchmark di eviction
+    private static final int EVICTION_OPS = 5000;
 
     private Map<Integer, Integer> lruMap;
     private Map<Integer, Integer> linkedHashMap;
     private Random random;
+    // Contatore di chiavi mai riutilizzate, per il benchmark di eviction:
+    // si azzera una volta per iterazione (vedi setup()) e cresce tra
+    // un'invocazione e l'altra, cosi' che dopo il primo riempimento
+    // ogni put() successivo inserisca una chiave nuova e forzi
+    // l'espulsione dell'elemento meno recentemente usato.
+    private int evictionKey;
 
     /**
      * LinkedHashMap in access-order con removeEldestEntry sovrascritto
@@ -77,6 +85,7 @@ public class LRUMapBenchmark {
         lruMap = new LRUMap<>(CAPACITY);
         linkedHashMap = new BoundedLinkedHashMap(CAPACITY);
         random = new Random(42);
+        evictionKey = 0;
     }
 
     // --- Benchmark 1: throughput puro su inserimento ---
@@ -119,6 +128,30 @@ public class LRUMapBenchmark {
         for (int i = 0; i < LOOKUP_OPS; i++) {
             final int key = random.nextInt(CAPACITY);
             linkedHashMap.get(key);
+        }
+    }
+
+    // --- Benchmark 3: eviction sostenuta ---
+    // A differenza di testXxxAdd, che reinserisce sempre le stesse CAPACITY
+    // chiavi (sovrascrivendone il valore), qui ogni put() usa una chiave mai
+    // vista prima (evictionKey cresce in modo monotono). Una volta che la
+    // mappa raggiunge la capacita' massima, ogni inserimento successivo
+    // forza l'espulsione dell'elemento meno recentemente usato: e' questa
+    // l'operazione che giustifica l'esistenza di una struttura LRU.
+
+    @Benchmark
+    public void testLRUMapEviction() {
+        for (int i = 0; i < EVICTION_OPS; i++) {
+            lruMap.put(evictionKey, evictionKey);
+            evictionKey++;
+        }
+    }
+
+    @Benchmark
+    public void testLinkedHashMapEviction() {
+        for (int i = 0; i < EVICTION_OPS; i++) {
+            linkedHashMap.put(evictionKey, evictionKey);
+            evictionKey++;
         }
     }
 }
