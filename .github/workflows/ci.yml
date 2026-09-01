@@ -37,13 +37,14 @@ jobs:
           java-version: '17'
           cache: 'maven'
       
+      - name: Set up Snyk CLI
+        uses: snyk/actions/setup@12140f4059e244892ae643824a95459a102120dd
+      
       - name: Run Snyk to check for vulnerabilities
-        uses: snyk/actions/maven@12140f4059e244892ae643824a95459a102120dd
+        run: snyk test --severity-threshold=high
         continue-on-error: true # Evita di bloccare la pipeline se trova vulnerabilità ereditate non bloccanti
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          args: --severity-threshold=high
 
   # Job 3: Build, Test e JaCoCo Report
   build:
